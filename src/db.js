@@ -105,14 +105,25 @@ function publicIdFor(id) {
   return 'RB-' + (1000 + id);
 }
 
-// טעינת נתוני דמו מ-seed-data.json בהרצה ראשונה בלבד
+// אתחול ראשוני: חשבון אדמין תמיד; נתוני דמו (ספקים + בקשות) רק עם SEED_DEMO=1
 function seedIfEmpty() {
-  const { n } = db.prepare('SELECT COUNT(*) AS n FROM suppliers').get();
-  if (n > 0) return;
-
   const seedPath = path.join(__dirname, '..', 'seed-data.json');
   if (!fs.existsSync(seedPath)) return;
   const seed = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
+
+  // חשבון אדמין חייב להתקיים כדי שאפשר יהיה לנהל את המערכת
+  const { n: adminCount } = db.prepare('SELECT COUNT(*) AS n FROM admins').get();
+  if (adminCount === 0) {
+    db.prepare('INSERT INTO admins (name, email, password_hash) VALUES (?,?,?)').run(
+      seed.admin.name, seed.admin.email, hashPassword(seed.admin.password)
+    );
+    console.log('חשבון אדמין נוצר');
+  }
+
+  if (process.env.SEED_DEMO !== '1') return;
+
+  const { n } = db.prepare('SELECT COUNT(*) AS n FROM suppliers').get();
+  if (n > 0) return;
 
   const insSup = db.prepare(
     'INSERT INTO suppliers (name, region, contact_name, email, password_hash, active) VALUES (?,?,?,?,?,?)'
@@ -122,16 +133,6 @@ function seedIfEmpty() {
     const info = insSup.run(s.name, s.region, s.contactName, s.email, hashPassword(s.password), s.active ? 1 : 0);
     const id = Number(info.lastInsertRowid);
     if (s.active) (supIdsByRegion[s.region] = supIdsByRegion[s.region] || []).push(id);
-  }
-
-  db.prepare('INSERT INTO admins (name, email, password_hash) VALUES (?,?,?)').run(
-    seed.admin.name, seed.admin.email, hashPassword(seed.admin.password)
-  );
-
-  // בקשות דמו נטענות רק אם מבקשים במפורש (SEED_DEMO=1) — כברירת מחדל המערכת מתחילה נקייה
-  if (process.env.SEED_DEMO !== '1') {
-    console.log('נתוני בסיס נטענו (ספקים ואדמין בלבד, ללא בקשות דמו)');
-    return;
   }
 
   const insReq = db.prepare(`
