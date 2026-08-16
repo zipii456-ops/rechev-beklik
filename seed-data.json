@@ -60,15 +60,6 @@
       "email": "ronit@demo.co.il",
       "password": "demo1234",
       "active": true
-    },
-    {
-      "name": "מרכז הרכב יהוד",
-      "region": "יהוד",
-      "contactName": "אבי מזרחי",
-      "email": "avi@demo.co.il",
-      "password": "demo1234",
-      "active": false,
-      "note": "ספק חסום — לדוגמת מסך חסימת ספק באדמין"
     }
   ],
 

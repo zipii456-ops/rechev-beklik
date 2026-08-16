@@ -120,8 +120,7 @@ function seedIfEmpty() {
     console.log('חשבון אדמין נוצר');
   }
 
-  if (process.env.SEED_DEMO !== '1') return;
-
+  // הספקים הם נתוני בסיס קבועים — נטענים תמיד כשבסיס הנתונים ריק
   const { n } = db.prepare('SELECT COUNT(*) AS n FROM suppliers').get();
   if (n > 0) return;
 
@@ -134,6 +133,10 @@ function seedIfEmpty() {
     const id = Number(info.lastInsertRowid);
     if (s.active) (supIdsByRegion[s.region] = supIdsByRegion[s.region] || []).push(id);
   }
+  console.log('ספקי הבסיס נטענו');
+
+  // בקשות דמו — רק בהפעלה מפורשת
+  if (process.env.SEED_DEMO !== '1') return;
 
   const insReq = db.prepare(`
     INSERT INTO requests (track_token, region, neighborhood, start_date, end_date, car_type,
