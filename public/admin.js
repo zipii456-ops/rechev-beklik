@@ -137,7 +137,7 @@
             <td>${o.requestPublicId}</td>
             <td>${o.region}</td>
             <td>${esc(o.supplierName)}</td>
-            <td>${o.price ? '₪' + o.price : '—'}</td>
+            <td>${o.price ? '₪' + o.price + ' ' + (o.priceUnit || '') : '—'}</td>
             <td>${esc(o.note || '—')}</td>
             <td>${o.available ? 'זמין' : 'אין זמינות'}</td>
             <td>${o.chosen ? '★ נבחרה' : ''}</td>

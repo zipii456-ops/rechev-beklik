@@ -1,8 +1,10 @@
-// ממשק ספק — התחברות, בקשות פתוחות, הגשת הצעות ועדכון סטטוס סופי
+// ממשק ספק — טאבים: אושרו לטיפול / בקשות חדשות / ממתינות ללקוח / היסטוריה
 (function () {
   const $ = (id) => document.getElementById(id);
   const TOKEN_KEY = 'rb_supplier_token';
+  const PRICE_UNITS = ['ליום', 'לשעה', 'לעסקה'];
   let pollTimer = null;
+  let activeTab = null; // נקבע אוטומטית בטעינה הראשונה
 
   function showMsg(text, kind) {
     $('msg').innerHTML = text ? `<div class="msg ${kind}">${text}</div>` : '';
@@ -25,6 +27,9 @@
 
   const fmtDate = (iso) => { const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; };
   const yesNo = (v) => v ? 'כן' : 'לא';
+  const priceUnitOptions = (selected) =>
+    PRICE_UNITS.map(u => `<option ${u === selected ? 'selected' : ''}>${u}</option>`).join('');
+  const priceText = (o) => `₪${o.price} ${o.priceUnit || ''}`;
 
   function showView(name) {
     $('view-login').classList.toggle('hidden', name !== 'login');
@@ -92,79 +97,97 @@
   }
 
   function render(requests) {
+    // חלוקה לארבע קבוצות ברורות
+    const won = requests.filter(r => r.status === 'נבחרה הצעה' && r.myOffer && r.myOffer.chosen);
     const open = requests.filter(r => r.status === 'חדש' && !r.myOffer);
     const sent = requests.filter(r => r.status === 'חדש' && r.myOffer);
-    const won = requests.filter(r => r.status === 'נבחרה הצעה' && r.myOffer && r.myOffer.chosen);
     const done = requests.filter(r => ['נסגר', 'לא נסגר'].includes(r.status) ||
       (r.status === 'נבחרה הצעה' && (!r.myOffer || !r.myOffer.chosen)));
 
-    let html = '';
+    // בכניסה ראשונה: אם יש הצעות שאושרו — פותחים ישר עליהן
+    if (!activeTab) activeTab = won.length ? 'won' : 'open';
 
-    // הצעה נבחרה — דורש עדכון סטטוס
-    if (won.length) {
-      html += `<div class="section-title">🎉 נבחרת! נדרש עדכון סטטוס <span class="count">${won.length}</span></div>`;
-      html += won.map(r => `
-        <div class="card" style="border: 1.5px solid var(--gold)">
-          <div class="req-head"><h3>בקשה ${r.publicId}</h3><span class="badge chosen">ההצעה שלך נבחרה</span></div>
+    const tabs = [
+      { key: 'won', label: '✔ אושרו — לטיפול', count: won.length, attention: won.length > 0 },
+      { key: 'open', label: 'בקשות חדשות', count: open.length },
+      { key: 'sent', label: 'ממתינות ללקוח', count: sent.length },
+      { key: 'done', label: 'היסטוריה', count: done.length },
+    ];
+
+    let html = `<div class="tabs">` + tabs.map(t => `
+      <button data-tab="${t.key}" class="${activeTab === t.key ? 'on' : ''} ${t.attention ? 'attention' : ''}">
+        ${t.label} <span class="tab-count">${t.count}</span>
+      </button>`).join('') + `</div>`;
+
+    if (activeTab === 'won') {
+      html += won.length ? won.map(r => `
+        <div class="card won-card">
+          <div class="won-banner">🎉 הלקוח אישר את ההצעה שלך!</div>
+          <div class="req-head"><h3>בקשה ${r.publicId}</h3><span class="badge chosen">נבחרה</span></div>
           ${requestDetails(r)}
-          <p class="hint" style="margin-top:10px">המחיר שהצעת: <strong>₪${r.myOffer.price}</strong>. לאחר סיום הטיפול — חובה לעדכן:</p>
+          <p class="hint" style="margin-top:10px">ההצעה שאושרה: <strong>${priceText(r.myOffer)}</strong>${r.myOffer.note ? ' · ' + r.myOffer.note : ''}</p>
+          <p class="hint">לאחר סיום הטיפול מול הלקוח — חובה לעדכן את תוצאת העסקה:</p>
           <div class="btn-row">
-            <button class="btn small" data-final="${r.myOffer.id}" data-status="נסגר">נסגר ✓</button>
-            <button class="btn small danger-outline" data-final="${r.myOffer.id}" data-status="לא נסגר">לא נסגר</button>
+            <button class="btn small" data-final="${r.myOffer.id}" data-status="נסגר">העסקה נסגרה ✓</button>
+            <button class="btn small danger-outline" data-final="${r.myOffer.id}" data-status="לא נסגר">לא נסגרה</button>
           </div>
-        </div>`).join('');
+        </div>`).join('')
+        : '<div class="card empty">אין כרגע הצעות שאושרו וממתינות לטיפול.<br>כשלקוח יאשר הצעה שלך — היא תופיע כאן, והטאב יודגש בזהב.</div>';
     }
 
-    // בקשות חדשות
-    html += `<div class="section-title">בקשות חדשות <span class="count">${open.length}</span></div>`;
-    html += open.length ? open.map(r => `
-      <div class="card">
-        <div class="req-head"><h3>בקשה ${r.publicId}</h3><span class="badge waiting">ממתינה להצעה</span></div>
-        ${requestDetails(r)}
-        <form data-offer-form="${r.id}" style="margin-top:12px">
-          <div class="row2">
-            <div class="field">
-              <label>מחיר (₪) *</label>
-              <input type="number" min="1" name="price" placeholder="לדוגמה: 250">
+    if (activeTab === 'open') {
+      html += open.length ? open.map(r => `
+        <div class="card">
+          <div class="req-head"><h3>בקשה ${r.publicId}</h3><span class="badge waiting">ממתינה להצעה</span></div>
+          ${requestDetails(r)}
+          <form data-offer-form="${r.id}" style="margin-top:12px">
+            <div class="row2">
+              <div class="field">
+                <label>מחיר (₪) *</label>
+                <input type="number" min="1" name="price" placeholder="לדוגמה: 250">
+              </div>
+              <div class="field">
+                <label>יחידת מחיר</label>
+                <select name="priceUnit">${priceUnitOptions('ליום')}</select>
+              </div>
             </div>
             <div class="field">
               <label>הערה כללית</label>
               <input type="text" name="note" placeholder='למשל: כולל ק"מ חופשי'>
             </div>
-          </div>
-          <div class="btn-row">
-            <button class="btn small" type="submit">שלח הצעה</button>
-            <button class="btn small outline" type="button" data-unavail="${r.id}">אין זמינות</button>
-          </div>
-        </form>
-      </div>`).join('') : '<div class="card empty">אין כרגע בקשות חדשות באזור שלך</div>';
+            <div class="btn-row">
+              <button class="btn small" type="submit">שלח הצעה</button>
+              <button class="btn small outline" type="button" data-unavail="${r.id}">אין זמינות</button>
+            </div>
+          </form>
+        </div>`).join('')
+        : '<div class="card empty">אין כרגע בקשות חדשות באזור שלך</div>';
+    }
 
-    // הצעות שנשלחו
-    if (sent.length) {
-      html += `<div class="section-title">הצעות שנשלחו — ממתינות ללקוח <span class="count">${sent.length}</span></div>`;
-      html += sent.map(r => `
+    if (activeTab === 'sent') {
+      html += sent.length ? sent.map(r => `
         <div class="card">
           <div class="req-head"><h3>בקשה ${r.publicId}</h3>
-            <span class="badge waiting">${r.myOffer.available ? 'הצעה נשלחה' : 'סומן: אין זמינות'}</span></div>
+            <span class="badge waiting">${r.myOffer.available ? 'ממתין לתשובת הלקוח' : 'סומן: אין זמינות'}</span></div>
           ${requestDetails(r)}
-          ${r.myOffer.available ? `<p class="hint" style="margin-top:8px">ההצעה שלך: <strong>₪${r.myOffer.price}</strong>${r.myOffer.note ? ' · ' + r.myOffer.note : ''} — אפשר לעדכן:</p>
+          ${r.myOffer.available ? `<p class="hint" style="margin-top:8px">ההצעה שלך: <strong>${priceText(r.myOffer)}</strong>${r.myOffer.note ? ' · ' + r.myOffer.note : ''} — אפשר לעדכן:</p>
           <form data-offer-form="${r.id}">
             <div class="row2">
               <div class="field"><label>מחיר (₪)</label><input type="number" min="1" name="price" value="${r.myOffer.price}"></div>
-              <div class="field"><label>הערה</label><input type="text" name="note" value="${r.myOffer.note || ''}"></div>
+              <div class="field"><label>יחידת מחיר</label><select name="priceUnit">${priceUnitOptions(r.myOffer.priceUnit || 'ליום')}</select></div>
             </div>
+            <div class="field"><label>הערה</label><input type="text" name="note" value="${r.myOffer.note || ''}"></div>
             <div class="btn-row"><button class="btn small secondary" type="submit">עדכן הצעה</button></div>
           </form>` : ''}
-        </div>`).join('');
+        </div>`).join('')
+        : '<div class="card empty">אין הצעות שממתינות לתשובת לקוח</div>';
     }
 
-    // היסטוריה
-    if (done.length) {
-      html += `<div class="section-title">היסטוריה <span class="count">${done.length}</span></div>`;
-      html += done.map(r => {
+    if (activeTab === 'done') {
+      html += done.length ? done.map(r => {
         const mine = r.myOffer && r.myOffer.chosen;
         let badge;
-        if (r.status === 'נסגר') badge = '<span class="badge closed">נסגר</span>';
+        if (r.status === 'נסגר') badge = '<span class="badge closed">נסגר ✓</span>';
         else if (r.status === 'לא נסגר') badge = '<span class="badge lost">לא נסגר</span>';
         else badge = '<span class="badge lost">נבחרה הצעה אחרת</span>';
         return `
@@ -173,10 +196,11 @@
           <div class="kv">
             <dt>תאריכים</dt><dd>${fmtDate(r.startDate)} עד ${fmtDate(r.endDate)}</dd>
             <dt>סוג רכב</dt><dd>${r.carType}</dd>
-            ${r.myOffer && r.myOffer.available ? `<dt>ההצעה שלך</dt><dd>₪${r.myOffer.price}${mine ? ' (נבחרה)' : ''}</dd>` : ''}
+            ${r.myOffer && r.myOffer.available ? `<dt>ההצעה שלך</dt><dd>${priceText(r.myOffer)}${mine ? ' (נבחרה)' : ''}</dd>` : ''}
           </div>
         </div>`;
-      }).join('');
+      }).join('')
+        : '<div class="card empty">אין עדיין היסטוריה</div>';
     }
 
     $('board').innerHTML = html;
@@ -184,13 +208,18 @@
   }
 
   function bindBoard() {
+    document.querySelectorAll('[data-tab]').forEach(btn => {
+      btn.onclick = () => { activeTab = btn.dataset.tab; load(true); };
+    });
     document.querySelectorAll('[data-offer-form]').forEach(form => {
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const price = form.elements.price.value;
-        const note = form.elements.note.value;
         try {
-          await api(`/api/supplier/requests/${form.dataset.offerForm}/offers`, { body: { price, note } });
+          await api(`/api/supplier/requests/${form.dataset.offerForm}/offers`, { body: {
+            price: form.elements.price.value,
+            priceUnit: form.elements.priceUnit ? form.elements.priceUnit.value : 'ליום',
+            note: form.elements.note ? form.elements.note.value : '',
+          }});
           showMsg('ההצעה נשלחה ללקוח', 'success');
           load(true);
         } catch (err) { showMsg(err.message, 'error'); }
@@ -210,7 +239,7 @@
         if (!confirm(`לעדכן את העסקה כ"${btn.dataset.status}"?`)) return;
         try {
           await api(`/api/supplier/offers/${btn.dataset.final}/status`, { body: { status: btn.dataset.status } });
-          showMsg('הסטטוס עודכן', 'success');
+          showMsg('הסטטוס עודכן — תודה!', 'success');
           load(true);
         } catch (err) { showMsg(err.message, 'error'); }
       };

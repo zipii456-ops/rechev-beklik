@@ -138,7 +138,7 @@
     $('offers-list').innerHTML = offers.map(o => `
       <div class="offer-card ${o.chosen ? 'chosen' : ''}">
         <div class="req-head">
-          <div class="offer-price">₪${o.price} <small>לעסקה / ליום לפי התנאים</small></div>
+          <div class="offer-price">₪${o.price} <small>${o.priceUnit || ''}</small></div>
           ${o.chosen ? '<span class="badge chosen">ההצעה שנבחרה</span>' : ''}
         </div>
         <div class="kv" style="margin-top:6px">

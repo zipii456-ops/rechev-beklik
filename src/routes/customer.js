@@ -1,11 +1,11 @@
 // API לקוח — ללא הרשמה: יצירת בקשה, מעקב לפי טוקן, בחירת הצעה
 const express = require('express');
-const { db, REGIONS, CAR_TYPES, newToken, publicIdFor } = require('../db');
+const { db, REGIONS, CAR_TYPES, PRICE_UNITS, newToken, publicIdFor } = require('../db');
 
 const router = express.Router();
 
 router.get('/meta', (req, res) => {
-  res.json({ regions: REGIONS, carTypes: CAR_TYPES });
+  res.json({ regions: REGIONS, carTypes: CAR_TYPES, priceUnits: PRICE_UNITS });
 });
 
 router.post('/requests', (req, res) => {
@@ -65,14 +65,14 @@ router.get('/track/:token', (req, res) => {
 
   // ללא פרטי ספק — רק מחיר, סוג רכב ותנאים
   const offers = db.prepare(`
-    SELECT id, price, car_type, note, chosen, status
+    SELECT id, price, price_unit, car_type, note, chosen, status
     FROM offers WHERE request_id=? AND available=1
     ORDER BY chosen DESC, price ASC`).all(r.id);
 
   res.json({
     request: customerRequestView(r),
     offers: offers.map(o => ({
-      id: o.id, price: o.price, carType: o.car_type, note: o.note,
+      id: o.id, price: o.price, priceUnit: o.price_unit, carType: o.car_type, note: o.note,
       chosen: !!o.chosen, status: o.status,
     })),
   });

@@ -6,6 +6,7 @@ const crypto = require('crypto');
 
 const REGIONS = ['ירושלים', 'אשדוד', 'בני ברק', 'יהוד'];
 const CAR_TYPES = ['קטן', 'משפחתי', '7 מקומות', 'מסחרי'];
+const PRICE_UNITS = ['ליום', 'לשעה', 'לעסקה'];
 // 'חדש' מוצג ללקוח כ"ממתין להצעות"
 const REQUEST_STATUSES = ['חדש', 'נבחרה הצעה', 'נסגר', 'לא נסגר'];
 const FINAL_STATUSES = ['נסגר', 'לא נסגר'];
@@ -77,6 +78,12 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 `);
 
+// הוספת עמודות חדשות לבסיסי נתונים קיימים
+const offerCols = db.prepare('PRAGMA table_info(offers)').all().map(c => c.name);
+if (!offerCols.includes('price_unit')) {
+  db.exec("ALTER TABLE offers ADD COLUMN price_unit TEXT NOT NULL DEFAULT 'ליום'");
+}
+
 function hashPassword(password) {
   const salt = crypto.randomBytes(16);
   const hash = crypto.scryptSync(String(password), salt, 32);
@@ -126,8 +133,8 @@ function seedIfEmpty() {
       driver_age, license_years, shabbat, extra_driver, urgent, phone, status)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   const insOffer = db.prepare(`
-    INSERT INTO offers (request_id, supplier_id, price, car_type, note, available, chosen, status)
-    VALUES (?,?,?,?,?,?,?,?)`);
+    INSERT INTO offers (request_id, supplier_id, price, price_unit, car_type, note, available, chosen, status)
+    VALUES (?,?,?,?,?,?,?,?,?)`);
 
   const basePrices = { 'קטן': 190, 'משפחתי': 260, '7 מקומות': 340, 'מסחרי': 310 };
   const demoNotes = ['מחיר ליום, כולל ק"מ חופשי', 'כולל ביטוח מקיף, השתתפות עצמית מופחתת'];
@@ -151,7 +158,7 @@ function seedIfEmpty() {
     sups.forEach((sid, i) => {
       const chosen = needsChosen && i === 0 ? 1 : 0;
       const offerStatus = chosen && FINAL_STATUSES.includes(seedStatus) ? seedStatus : 'הצעה נשלחה';
-      insOffer.run(reqId, sid, base + i * 25, r.carType, demoNotes[i % demoNotes.length], 1, chosen, offerStatus);
+      insOffer.run(reqId, sid, base + i * 25, 'ליום', r.carType, demoNotes[i % demoNotes.length], 1, chosen, offerStatus);
     });
   }
 
@@ -159,6 +166,6 @@ function seedIfEmpty() {
 }
 
 module.exports = {
-  db, REGIONS, CAR_TYPES, REQUEST_STATUSES, FINAL_STATUSES,
+  db, REGIONS, CAR_TYPES, PRICE_UNITS, REQUEST_STATUSES, FINAL_STATUSES,
   hashPassword, verifyPassword, newToken, publicIdFor, seedIfEmpty,
 };
