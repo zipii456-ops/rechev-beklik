@@ -104,7 +104,7 @@
             <td>${r.carType}</td>
             <td>${r.driverAge} / ותק ${r.licenseYears}</td>
             <td dir="ltr">${esc(r.phone)}</td>
-            <td>${r.urgent ? '<span class="tag urgent">מיידי</span>' : ''}${r.shabbat ? '<span class="tag">שבת</span>' : ''}${r.extraDriver ? '<span class="tag">נהג נוסף</span>' : ''}</td>
+            <td>${r.urgent ? '<span class="tag urgent">מיידי</span>' : ''}${r.extraDriver ? '<span class="tag">נהג נוסף</span>' : ''}</td>
             <td>${r.offersCount}</td>
             <td>${esc(r.chosenSupplier || '—')}</td>
             <td>

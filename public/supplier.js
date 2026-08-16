@@ -91,7 +91,6 @@
       </dl>
       <div class="tags">
         ${r.urgent ? '<span class="tag urgent">דרוש מיידי</span>' : ''}
-        <span class="tag">שבת: ${yesNo(r.shabbat)}</span>
         <span class="tag">נהג נוסף: ${yesNo(r.extraDriver)}</span>
       </div>`;
   }

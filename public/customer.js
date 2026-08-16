@@ -119,7 +119,6 @@
         carType: $('f-cartype').value,
         driverAge: $('f-age').value,
         licenseYears: $('f-license').value,
-        shabbat: $('f-shabbat').checked,
         extraDriver: $('f-extra').checked,
         urgent: $('f-urgent').checked,
         phone: $('f-phone').value,
