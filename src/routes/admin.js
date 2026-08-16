@@ -53,6 +53,7 @@ router.get('/overview', requireAuth('admin'), (req, res) => {
     offers: offers.map(o => ({
       id: o.id, requestPublicId: o.request_public_id, region: o.request_region,
       supplierName: o.supplier_name, price: o.price, priceUnit: o.price_unit, carType: o.car_type,
+      carModel: o.car_model,
       note: o.note, available: !!o.available, chosen: !!o.chosen,
       status: o.status, createdAt: o.created_at,
     })),

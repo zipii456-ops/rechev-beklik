@@ -54,7 +54,7 @@ router.get('/requests', requireAuth('supplier'), (req, res) => {
         createdAt: r.created_at,
         customerPhone: o && o.chosen ? r.phone : undefined,
         myOffer: o ? {
-          id: o.id, price: o.price, priceUnit: o.price_unit, note: o.note,
+          id: o.id, price: o.price, priceUnit: o.price_unit, carModel: o.car_model, note: o.note,
           available: !!o.available, chosen: !!o.chosen, status: o.status,
         } : null,
       };
@@ -78,6 +78,8 @@ router.post('/requests/:id/offers', requireAuth('supplier'), (req, res) => {
   }
   const priceUnit = PRICE_UNITS.includes(b.priceUnit) ? b.priceUnit : 'ליום';
   const carType = String(b.carType || r.car_type);
+  const carModel = String(b.carModel || '').trim().slice(0, 60) || null;
+  if (available && !carModel) return res.status(400).json({ error: 'נא לציין דגם רכב' });
   const note = String(b.note || '').trim() || null;
 
   const existing = db.prepare('SELECT * FROM offers WHERE request_id=? AND supplier_id=?').get(r.id, sup.id);
@@ -85,11 +87,11 @@ router.post('/requests/:id/offers', requireAuth('supplier'), (req, res) => {
     return res.status(400).json({ error: 'ההצעה כבר נבחרה על ידי הלקוח ולא ניתן לשנותה' });
   }
   if (existing) {
-    db.prepare(`UPDATE offers SET price=?, price_unit=?, car_type=?, note=?, available=?, status='הצעה נשלחה' WHERE id=?`)
-      .run(price, priceUnit, carType, note, available ? 1 : 0, existing.id);
+    db.prepare(`UPDATE offers SET price=?, price_unit=?, car_type=?, car_model=?, note=?, available=?, status='הצעה נשלחה' WHERE id=?`)
+      .run(price, priceUnit, carType, carModel, note, available ? 1 : 0, existing.id);
   } else {
-    db.prepare(`INSERT INTO offers (request_id, supplier_id, price, price_unit, car_type, note, available) VALUES (?,?,?,?,?,?,?)`)
-      .run(r.id, sup.id, price, priceUnit, carType, note, available ? 1 : 0);
+    db.prepare(`INSERT INTO offers (request_id, supplier_id, price, price_unit, car_type, car_model, note, available) VALUES (?,?,?,?,?,?,?,?)`)
+      .run(r.id, sup.id, price, priceUnit, carType, carModel, note, available ? 1 : 0);
   }
   res.json({ ok: true });
 });

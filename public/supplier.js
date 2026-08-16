@@ -3,6 +3,7 @@
   const $ = (id) => document.getElementById(id);
   const TOKEN_KEY = 'rb_supplier_token';
   const PRICE_UNITS = ['ליום', 'לשעה', 'לעסקה'];
+  let carModels = {}; // דגמים לפי סוג רכב, נטען מהשרת
   let pollTimer = null;
   let activeTab = null; // נקבע אוטומטית בטעינה הראשונה
 
@@ -30,6 +31,12 @@
   const priceUnitOptions = (selected) =>
     PRICE_UNITS.map(u => `<option ${u === selected ? 'selected' : ''}>${u}</option>`).join('');
   const priceText = (o) => `₪${o.price} ${o.priceUnit || ''}`;
+  const modelField = (carType, value) => `
+    <div class="field">
+      <label>דגם הרכב המוצע *</label>
+      <input type="text" name="carModel" list="models-${carType}" value="${value || ''}" placeholder="בחרו מהרשימה או כתבו דגם">
+      <datalist id="models-${carType}">${(carModels[carType] || []).map(m => `<option value="${m}">`).join('')}</datalist>
+    </div>`;
 
   function showView(name) {
     $('view-login').classList.toggle('hidden', name !== 'login');
@@ -73,6 +80,9 @@
 
   async function load(silent) {
     try {
+      if (!Object.keys(carModels).length) {
+        carModels = (await api('/api/meta')).carModels || {};
+      }
       const data = await api('/api/supplier/requests');
       $('sup-name').textContent = `${data.supplier.name} · אזור ${data.supplier.region}`;
       render(data.requests);
@@ -124,7 +134,7 @@
           <div class="won-banner">🎉 הלקוח אישר את ההצעה שלך!</div>
           <div class="req-head"><h3>בקשה ${r.publicId}</h3><span class="badge chosen">נבחרה</span></div>
           ${requestDetails(r)}
-          <p class="hint" style="margin-top:10px">ההצעה שאושרה: <strong>${priceText(r.myOffer)}</strong>${r.myOffer.note ? ' · ' + r.myOffer.note : ''}</p>
+          <p class="hint" style="margin-top:10px">ההצעה שאושרה: <strong>${r.myOffer.carModel ? r.myOffer.carModel + ' · ' : ''}${priceText(r.myOffer)}</strong>${r.myOffer.note ? ' · ' + r.myOffer.note : ''}</p>
           ${r.customerPhone ? `<div class="phone-box">📞 טלפון הלקוח: <a href="tel:${r.customerPhone}">${r.customerPhone}</a> — התקשרו לסגירת ההשכרה</div>` : ''}
           <p class="hint">לאחר סיום הטיפול מול הלקוח — חובה לעדכן את תוצאת העסקה:</p>
           <div class="btn-row">
@@ -141,6 +151,7 @@
           <div class="req-head"><h3>בקשה ${r.publicId}</h3><span class="badge waiting">ממתינה להצעה</span></div>
           ${requestDetails(r)}
           <form data-offer-form="${r.id}" style="margin-top:12px">
+            ${modelField(r.carType, '')}
             <div class="row2">
               <div class="field">
                 <label>מחיר (₪) *</label>
@@ -170,8 +181,9 @@
           <div class="req-head"><h3>בקשה ${r.publicId}</h3>
             <span class="badge waiting">${r.myOffer.available ? 'ממתין לתשובת הלקוח' : 'סומן: אין זמינות'}</span></div>
           ${requestDetails(r)}
-          ${r.myOffer.available ? `<p class="hint" style="margin-top:8px">ההצעה שלך: <strong>${priceText(r.myOffer)}</strong>${r.myOffer.note ? ' · ' + r.myOffer.note : ''} — אפשר לעדכן:</p>
+          ${r.myOffer.available ? `<p class="hint" style="margin-top:8px">ההצעה שלך: <strong>${r.myOffer.carModel || ''}</strong> · <strong>${priceText(r.myOffer)}</strong>${r.myOffer.note ? ' · ' + r.myOffer.note : ''} — אפשר לעדכן:</p>
           <form data-offer-form="${r.id}">
+            ${modelField(r.carType, r.myOffer.carModel)}
             <div class="row2">
               <div class="field"><label>מחיר (₪)</label><input type="number" min="1" name="price" value="${r.myOffer.price}"></div>
               <div class="field"><label>יחידת מחיר</label><select name="priceUnit">${priceUnitOptions(r.myOffer.priceUnit || 'ליום')}</select></div>
@@ -219,6 +231,7 @@
           await api(`/api/supplier/requests/${form.dataset.offerForm}/offers`, { body: {
             price: form.elements.price.value,
             priceUnit: form.elements.priceUnit ? form.elements.priceUnit.value : 'ליום',
+            carModel: form.elements.carModel ? form.elements.carModel.value : '',
             note: form.elements.note ? form.elements.note.value : '',
           }});
           showMsg('ההצעה נשלחה ללקוח', 'success');

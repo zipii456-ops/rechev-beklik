@@ -7,6 +7,13 @@ const crypto = require('crypto');
 const REGIONS = ['ירושלים', 'אשדוד', 'בני ברק', 'יהוד'];
 const CAR_TYPES = ['קטן', 'משפחתי', '7 מקומות', 'מסחרי'];
 const PRICE_UNITS = ['ליום', 'לשעה', 'לעסקה'];
+// דגמים נפוצים בצי ההשכרה בישראל, לפי סוג רכב — לרשימה הנפתחת אצל הספק (אפשר גם טקסט חופשי)
+const CAR_MODELS = {
+  'קטן': ['קיה פיקנטו', 'יונדאי i10', 'יונדאי i20', 'טויוטה יאריס', 'סוזוקי סוויפט', 'מאזדה 2', 'סקודה פאביה', 'קיה סטוניק', 'יונדאי ונו'],
+  'משפחתי': ['טויוטה קורולה', 'מאזדה 3', 'סקודה אוקטביה', 'יונדאי אלנטרה', 'קיה ספורטז\'', 'יונדאי טוסון', 'טויוטה RAV4', 'פיג\'ו 3008', 'קיה נירו'],
+  '7 מקומות': ['קיה סורנטו', 'יונדאי סנטה פה', 'קיה קרניבל', 'סקודה קודיאק', 'טויוטה היילנדר', 'סיטרואן ספייסטורר'],
+  'מסחרי': ['פורד טרנזיט', 'רנו קנגו', 'סיטרואן ברלינגו', 'פיג\'ו פרטנר', 'פיאט דוקאטו', 'טויוטה פרואייס'],
+};
 // 'חדש' מוצג ללקוח כ"ממתין להצעות"
 const REQUEST_STATUSES = ['חדש', 'נבחרה הצעה', 'נסגר', 'לא נסגר'];
 const FINAL_STATUSES = ['נסגר', 'לא נסגר'];
@@ -82,6 +89,9 @@ CREATE TABLE IF NOT EXISTS sessions (
 const offerCols = db.prepare('PRAGMA table_info(offers)').all().map(c => c.name);
 if (!offerCols.includes('price_unit')) {
   db.exec("ALTER TABLE offers ADD COLUMN price_unit TEXT NOT NULL DEFAULT 'ליום'");
+}
+if (!offerCols.includes('car_model')) {
+  db.exec('ALTER TABLE offers ADD COLUMN car_model TEXT');
 }
 
 function hashPassword(password) {
@@ -176,6 +186,6 @@ function seedIfEmpty() {
 }
 
 module.exports = {
-  db, REGIONS, CAR_TYPES, PRICE_UNITS, REQUEST_STATUSES, FINAL_STATUSES,
+  db, REGIONS, CAR_TYPES, CAR_MODELS, PRICE_UNITS, REQUEST_STATUSES, FINAL_STATUSES,
   hashPassword, verifyPassword, newToken, publicIdFor, seedIfEmpty,
 };

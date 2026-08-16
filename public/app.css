@@ -154,6 +154,7 @@ body {
 .offer-card.chosen { border-color: var(--gold); background: #fffdf5; }
 .offer-price { font-size: 1.5rem; font-weight: 800; color: var(--navy); }
 .offer-price small { font-size: 0.85rem; color: var(--muted); font-weight: 400; }
+.car-model { font-size: 1.05rem; font-weight: 700; margin-top: 4px; }
 
 /* ===== שורת הזמנה באזור האישי ===== */
 .order-row {

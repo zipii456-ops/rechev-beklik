@@ -142,13 +142,14 @@
     $('tab-offers').innerHTML = rows.length ? `
       <div class="table-wrap"><table>
         <thead><tr>
-          <th>בקשה</th><th>אזור</th><th>ספק</th><th>מחיר</th><th>הערה</th><th>זמינות</th><th>נבחרה?</th><th>סטטוס</th>
+          <th>בקשה</th><th>אזור</th><th>ספק</th><th>דגם</th><th>מחיר</th><th>הערה</th><th>זמינות</th><th>נבחרה?</th><th>סטטוס</th>
         </tr></thead>
         <tbody>${rows.map(o => `
           <tr>
             <td>${o.requestPublicId}</td>
             <td>${o.region}</td>
             <td>${esc(o.supplierName)}</td>
+            <td>${esc(o.carModel || '—')}</td>
             <td>${o.price ? '₪' + o.price + ' ' + (o.priceUnit || '') : '—'}</td>
             <td>${esc(o.note || '—')}</td>
             <td>${o.available ? 'זמין' : 'אין זמינות'}</td>

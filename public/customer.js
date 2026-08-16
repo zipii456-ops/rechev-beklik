@@ -197,11 +197,12 @@
           <div class="offer-price">₪${o.price} <small>${o.priceUnit || ''}</small></div>
           ${o.chosen ? '<span class="badge chosen">ההצעה שנבחרה</span>' : ''}
         </div>
+        ${o.carModel ? `<div class="car-model">🚗 ${o.carModel}</div>` : ''}
         <div class="kv" style="margin-top:6px">
           <dt>סוג רכב</dt><dd>${o.carType}</dd>
           ${o.note ? `<dt>תנאים</dt><dd>${o.note}</dd>` : ''}
         </div>
-        ${o.chosen && r.status === 'נבחרה הצעה' ? '<p class="hint" style="margin-top:8px">הסוכנות קיבלה את פרטיך ותיצור איתך קשר בהקדם.</p>' : ''}
+        ${o.chosen && r.status === 'נבחרה הצעה' ? `<p class="hint" style="margin-top:8px">הרכב שבחרת: <strong>${o.carModel || o.carType}</strong>. הסוכנות קיבלה את פרטיך ותיצור איתך קשר בהקדם.</p>` : ''}
         ${o.chosen && ['נסגר', 'לא נסגר'].includes(r.status) ? `<div style="margin-top:8px">${statusBadge(r.status)}</div>` : ''}
         ${canChoose ? `<div class="btn-row"><button class="btn small" data-choose="${o.id}">בחר הצעה</button></div>` : ''}
       </div>`).join('');
