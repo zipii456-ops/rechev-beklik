@@ -1,0 +1,195 @@
+{
+  "regions": ["ירושלים", "אשדוד", "בני ברק", "יהוד"],
+  "carTypes": ["קטן", "משפחתי", "7 מקומות", "מסחרי"],
+  "requestStatuses": ["חדש", "ממתין להצעות", "נבחרה הצעה", "נסגר", "לא נסגר"],
+  "offerStatuses": ["הצעה נשלחה", "נסגר", "לא נסגר"],
+
+  "suppliers": [
+    {
+      "name": "השכרות הבירה",
+      "region": "ירושלים",
+      "contactName": "משה לוי",
+      "email": "moshe@demo.co.il",
+      "password": "demo1234",
+      "active": true
+    },
+    {
+      "name": "רכב ירושלים פלוס",
+      "region": "ירושלים",
+      "contactName": "יעקב כהן",
+      "email": "yaakov@demo.co.il",
+      "password": "demo1234",
+      "active": true
+    },
+    {
+      "name": "אשדוד קאר",
+      "region": "אשדוד",
+      "contactName": "דוד אזולאי",
+      "email": "david@demo.co.il",
+      "password": "demo1234",
+      "active": true
+    },
+    {
+      "name": "השכרת רכב הנמל",
+      "region": "אשדוד",
+      "contactName": "שרה ביטון",
+      "email": "sara@demo.co.il",
+      "password": "demo1234",
+      "active": true
+    },
+    {
+      "name": "בני ברק מוטורס",
+      "region": "בני ברק",
+      "contactName": "ישראל פרידמן",
+      "email": "israel@demo.co.il",
+      "password": "demo1234",
+      "active": true
+    },
+    {
+      "name": "רכב און ליין ב\"ב",
+      "region": "בני ברק",
+      "contactName": "חיים גולדברג",
+      "email": "chaim@demo.co.il",
+      "password": "demo1234",
+      "active": true
+    },
+    {
+      "name": "יהוד רנט",
+      "region": "יהוד",
+      "contactName": "רונית שמעוני",
+      "email": "ronit@demo.co.il",
+      "password": "demo1234",
+      "active": true
+    },
+    {
+      "name": "מרכז הרכב יהוד",
+      "region": "יהוד",
+      "contactName": "אבי מזרחי",
+      "email": "avi@demo.co.il",
+      "password": "demo1234",
+      "active": false,
+      "note": "ספק חסום — לדוגמת מסך חסימת ספק באדמין"
+    }
+  ],
+
+  "admin": {
+    "name": "מנהלת המערכת",
+    "email": "admin@demo.co.il",
+    "password": "admin1234"
+  },
+
+  "customerRequests": [
+    {
+      "region": "ירושלים",
+      "neighborhood": "רמות",
+      "startDate": "2026-08-20",
+      "endDate": "2026-08-27",
+      "carType": "משפחתי",
+      "driverAge": 32,
+      "licenseYears": 12,
+      "shabbatDriving": false,
+      "extraDriver": true,
+      "urgent": false,
+      "customerPhone": "050-1111111",
+      "status": "חדש"
+    },
+    {
+      "region": "ירושלים",
+      "neighborhood": "בית וגן",
+      "startDate": "2026-08-17",
+      "endDate": "2026-08-19",
+      "carType": "קטן",
+      "driverAge": 24,
+      "licenseYears": 3,
+      "shabbatDriving": false,
+      "extraDriver": false,
+      "urgent": true,
+      "customerPhone": "052-2222222",
+      "status": "ממתין להצעות"
+    },
+    {
+      "region": "אשדוד",
+      "neighborhood": "רובע ט'",
+      "startDate": "2026-08-23",
+      "endDate": "2026-09-02",
+      "carType": "7 מקומות",
+      "driverAge": 41,
+      "licenseYears": 20,
+      "shabbatDriving": true,
+      "extraDriver": true,
+      "urgent": false,
+      "customerPhone": "053-3333333",
+      "status": "ממתין להצעות"
+    },
+    {
+      "region": "אשדוד",
+      "neighborhood": "סיטי",
+      "startDate": "2026-08-18",
+      "endDate": "2026-08-25",
+      "carType": "מסחרי",
+      "driverAge": 35,
+      "licenseYears": 15,
+      "shabbatDriving": true,
+      "extraDriver": false,
+      "urgent": true,
+      "customerPhone": "054-4444444",
+      "status": "נבחרה הצעה"
+    },
+    {
+      "region": "בני ברק",
+      "neighborhood": "פרדס כץ",
+      "startDate": "2026-08-24",
+      "endDate": "2026-08-31",
+      "carType": "משפחתי",
+      "driverAge": 28,
+      "licenseYears": 8,
+      "shabbatDriving": false,
+      "extraDriver": true,
+      "urgent": false,
+      "customerPhone": "055-5555555",
+      "status": "ממתין להצעות"
+    },
+    {
+      "region": "בני ברק",
+      "neighborhood": "רמת אהרן",
+      "startDate": "2026-08-16",
+      "endDate": "2026-08-21",
+      "carType": "7 מקומות",
+      "driverAge": 45,
+      "licenseYears": 25,
+      "shabbatDriving": false,
+      "extraDriver": false,
+      "urgent": true,
+      "customerPhone": "050-6666666",
+      "status": "נסגר"
+    },
+    {
+      "region": "יהוד",
+      "neighborhood": "מרכז העיר",
+      "startDate": "2026-08-25",
+      "endDate": "2026-08-28",
+      "carType": "קטן",
+      "driverAge": 22,
+      "licenseYears": 2,
+      "shabbatDriving": true,
+      "extraDriver": false,
+      "urgent": false,
+      "customerPhone": "052-7777777",
+      "status": "חדש"
+    },
+    {
+      "region": "יהוד",
+      "neighborhood": "נווה מונוסון",
+      "startDate": "2026-08-19",
+      "endDate": "2026-08-26",
+      "carType": "משפחתי",
+      "driverAge": 38,
+      "licenseYears": 18,
+      "shabbatDriving": false,
+      "extraDriver": true,
+      "urgent": false,
+      "customerPhone": "053-8888888",
+      "status": "לא נסגר"
+    }
+  ]
+}

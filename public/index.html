@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>רכב בקליק — בקשת רכב להשכרה</title>
+  <meta name="theme-color" content="#151a35">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="logo"><span class="blue">רכב</span> <span class="gold">בקליק</span></div>
+      <div class="sub">רכב להשכרה בקליק אחד — בלי טלפונים, בלי התרוצצויות</div>
+    </div>
+  </header>
+
+  <main class="app">
+    <div id="msg"></div>
+
+    <!-- מסך 1: טופס בקשת רכב -->
+    <section id="view-form" class="hidden">
+      <div id="active-banner" class="hidden msg info">
+        יש לך בקשה פעילה במערכת — <a href="#" id="goto-track">למעקב אחרי הסטטוס</a>
+      </div>
+
+      <div class="card">
+        <h2>בקשת רכב להשכרה</h2>
+        <p class="hint">ממלאים פעם אחת — ומקבלים הצעות מחיר מסוכנויות ההשכרה באזור שלך.</p>
+
+        <form id="request-form">
+          <div class="field">
+            <label for="f-region">אזור *</label>
+            <select id="f-region" required></select>
+          </div>
+          <div class="field">
+            <label for="f-neighborhood">שכונה / עיר *</label>
+            <input id="f-neighborhood" type="text" placeholder="לדוגמה: רמות" required>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label for="f-start">תאריך התחלה *</label>
+              <input id="f-start" type="date" required>
+            </div>
+            <div class="field">
+              <label for="f-end">תאריך סיום *</label>
+              <input id="f-end" type="date" required>
+            </div>
+          </div>
+          <div class="field">
+            <label for="f-cartype">סוג רכב *</label>
+            <select id="f-cartype" required></select>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label for="f-age">גיל הנהג *</label>
+              <input id="f-age" type="number" min="16" max="99" placeholder="25" required>
+            </div>
+            <div class="field">
+              <label for="f-license">ותק רישיון (שנים) *</label>
+              <input id="f-license" type="number" min="0" max="80" placeholder="5" required>
+            </div>
+          </div>
+
+          <label class="check"><input id="f-shabbat" type="checkbox"> נוסע בשבת</label>
+          <label class="check"><input id="f-extra" type="checkbox"> נהג נוסף</label>
+          <label class="check"><input id="f-urgent" type="checkbox"> הרכב דרוש באופן מיידי</label>
+
+          <div class="field" style="margin-top:14px">
+            <label for="f-phone">טלפון ליצירת קשר *</label>
+            <input id="f-phone" type="tel" placeholder="050-1234567" required>
+          </div>
+
+          <button class="btn" type="submit" id="submit-btn">שלח בקשה</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- אישור שליחה -->
+    <section id="view-success" class="hidden">
+      <div class="card big-check">
+        <div class="icon">✓</div>
+        <h2>הבקשה התקבלה!</h2>
+        <p class="hint">מספר הבקשה שלך: <strong id="success-id"></strong></p>
+        <p class="hint">ברגע שיתקבלו הצעות מחיר — הן יופיעו בעמוד המעקב שלך.</p>
+        <div class="copy-box">
+          <input id="track-link" readonly>
+          <button class="btn small secondary" id="copy-btn" type="button">העתק</button>
+        </div>
+        <div class="btn-row" style="margin-top:14px">
+          <button class="btn" id="success-goto" type="button">מעבר לעמוד המעקב</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- מסכים 2+3: הצעות מחיר וסטטוס -->
+    <section id="view-track" class="hidden">
+      <div class="card">
+        <div class="req-head">
+          <h2>הבקשה שלי</h2>
+          <span id="track-status"></span>
+        </div>
+        <div class="req-id" id="track-id"></div>
+        <dl class="kv" id="track-details" style="margin-top:10px"></dl>
+      </div>
+
+      <div class="section-title">הצעות מחיר <span class="count" id="offers-count">0</span></div>
+      <div id="offers-list"></div>
+
+      <button class="btn outline" id="new-request-btn" type="button" style="margin-top:18px">בקשה חדשה</button>
+    </section>
+
+    <footer class="credit">רכב בקליק · כל הפעולות מתבצעות דרך המערכת</footer>
+  </main>
+
+  <script src="/customer.js"></script>
+</body>
+</html>

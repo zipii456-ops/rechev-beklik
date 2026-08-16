@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>רכב בקליק — ממשק ספק</title>
+  <meta name="theme-color" content="#151a35">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="logo"><span class="blue">רכב</span> <span class="gold">בקליק</span></div>
+      <div class="sub">ממשק ספק</div>
+    </div>
+    <div class="user-info hidden" id="user-info">
+      <div id="sup-name"></div>
+      <button class="link" id="logout-btn" type="button">התנתקות</button>
+    </div>
+  </header>
+
+  <main class="app">
+    <div id="msg"></div>
+
+    <!-- התחברות -->
+    <section id="view-login" class="hidden">
+      <div class="card">
+        <h2>כניסת ספקים</h2>
+        <form id="login-form">
+          <div class="field">
+            <label for="l-email">אימייל</label>
+            <input id="l-email" type="email" autocomplete="username" required>
+          </div>
+          <div class="field">
+            <label for="l-password">סיסמה</label>
+            <input id="l-password" type="password" autocomplete="current-password" required>
+          </div>
+          <button class="btn" type="submit">כניסה</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- לוח בקשות -->
+    <section id="view-board" class="hidden">
+      <div id="board"></div>
+    </section>
+
+    <footer class="credit">רכב בקליק · פרטי הלקוח נשארים במערכת בלבד</footer>
+  </main>
+
+  <script src="/supplier.js"></script>
+</body>
+</html>

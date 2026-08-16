@@ -1,0 +1,14 @@
+{
+  "name": "רכב בקליק",
+  "short_name": "רכב בקליק",
+  "description": "רכב להשכרה בקליק אחד",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#151a35",
+  "theme_color": "#151a35",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
