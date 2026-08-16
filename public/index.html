@@ -20,11 +20,9 @@
   <main class="app">
     <div id="msg"></div>
 
-    <!-- מסך 1: טופס בקשת רכב -->
+    <!-- מסך 1: טופס בקשת רכב + אזור אישי -->
     <section id="view-form" class="hidden">
-      <div id="active-banner" class="hidden msg info">
-        יש לך בקשה פעילה במערכת — <a href="#" id="goto-track">למעקב אחרי הסטטוס</a>
-      </div>
+      <div id="my-orders"></div>
 
       <div class="card">
         <h2>בקשת רכב להשכרה</h2>
@@ -109,7 +107,10 @@
       <div class="section-title">הצעות מחיר <span class="count" id="offers-count">0</span></div>
       <div id="offers-list"></div>
 
-      <button class="btn outline" id="new-request-btn" type="button" style="margin-top:18px">בקשה חדשה</button>
+      <div class="btn-row" style="margin-top:18px">
+        <button class="btn outline" id="new-request-btn" type="button">+ בקשה חדשה</button>
+        <button class="btn outline" id="all-orders-btn" type="button">ההזמנות שלי</button>
+      </div>
     </section>
 
     <footer class="credit">רכב בקליק · כל הפעולות מתבצעות דרך המערכת</footer>

@@ -126,6 +126,7 @@
           <div class="req-head"><h3>בקשה ${r.publicId}</h3><span class="badge chosen">נבחרה</span></div>
           ${requestDetails(r)}
           <p class="hint" style="margin-top:10px">ההצעה שאושרה: <strong>${priceText(r.myOffer)}</strong>${r.myOffer.note ? ' · ' + r.myOffer.note : ''}</p>
+          ${r.customerPhone ? `<div class="phone-box">📞 טלפון הלקוח: <a href="tel:${r.customerPhone}">${r.customerPhone}</a> — התקשרו לסגירת ההשכרה</div>` : ''}
           <p class="hint">לאחר סיום הטיפול מול הלקוח — חובה לעדכן את תוצאת העסקה:</p>
           <div class="btn-row">
             <button class="btn small" data-final="${r.myOffer.id}" data-status="נסגר">העסקה נסגרה ✓</button>
@@ -197,6 +198,7 @@
             <dt>תאריכים</dt><dd>${fmtDate(r.startDate)} עד ${fmtDate(r.endDate)}</dd>
             <dt>סוג רכב</dt><dd>${r.carType}</dd>
             ${r.myOffer && r.myOffer.available ? `<dt>ההצעה שלך</dt><dd>${priceText(r.myOffer)}${mine ? ' (נבחרה)' : ''}</dd>` : ''}
+            ${mine && r.customerPhone ? `<dt>טלפון הלקוח</dt><dd><a href="tel:${r.customerPhone}">${r.customerPhone}</a></dd>` : ''}
           </div>
         </div>`;
       }).join('')

@@ -1,6 +1,7 @@
-// אפליקציית לקוח — טופס בקשה, אישור, מעקב ובחירת הצעה
+// אפליקציית לקוח — טופס בקשה, אזור אישי (היסטוריית הזמנות מהמכשיר), מעקב ובחירת הצעה
 (function () {
   const $ = (id) => document.getElementById(id);
+  const LIST_KEY = 'rb_track_list';
   const msgEl = $('msg');
   let pollTimer = null;
 
@@ -23,7 +24,7 @@
       body: JSON.stringify(options.body || {}),
     } : undefined);
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'שגיאה, נסו שוב');
+    if (!res.ok) { const e = new Error(data.error || 'שגיאה, נסו שוב'); e.status = res.status; throw e; }
     return data;
   }
 
@@ -37,6 +38,60 @@
     return `<span class="badge ${cls}">${status}</span>`;
   };
 
+  // ---- האזור האישי: רשימת הזמנות ששמורה במכשיר ----
+  function getList() {
+    try { return JSON.parse(localStorage.getItem(LIST_KEY)) || []; } catch (e) { return []; }
+  }
+  function saveList(list) { localStorage.setItem(LIST_KEY, JSON.stringify(list)); }
+  function addToList(token) {
+    const list = getList();
+    if (!list.includes(token)) { list.unshift(token); saveList(list); }
+  }
+  // תאימות לגרסה קודמת ששמרה בקשה אחת בלבד
+  (function migrate() {
+    const old = localStorage.getItem('rb_track');
+    if (old) { addToList(old); localStorage.removeItem('rb_track'); }
+  })();
+
+  async function renderMyOrders() {
+    const box = $('my-orders');
+    const list = getList();
+    if (!list.length) { box.innerHTML = ''; return; }
+
+    const rows = [];
+    const stillValid = [];
+    for (const token of list) {
+      try {
+        const data = await api('/api/track/' + token);
+        stillValid.push(token);
+        const r = data.request;
+        rows.push(`
+          <div class="order-row" data-open="${token}">
+            <div>
+              <strong>${r.publicId}</strong> · ${r.carType} · ${r.region}
+              <div class="order-sub">${fmtDate(r.startDate)}–${fmtDate(r.endDate)} · ${data.offers.length} הצעות</div>
+            </div>
+            ${statusBadge(r.status)}
+          </div>`);
+      } catch (e) {
+        // בקשה שכבר לא קיימת (למשל אחרי ניקוי נתונים) — מוסרת מהרשימה
+        if (e.status !== 404) stillValid.push(token);
+      }
+    }
+    saveList(stillValid);
+
+    box.innerHTML = rows.length ? `
+      <div class="card">
+        <h2>ההזמנות שלי</h2>
+        <p class="hint">ההזמנות ששלחת מהמכשיר הזה — לחצי על הזמנה לצפייה בהצעות ובסטטוס.</p>
+        ${rows.join('')}
+      </div>` : '';
+
+    box.querySelectorAll('[data-open]').forEach(el => {
+      el.onclick = () => openTrack(el.dataset.open);
+    });
+  }
+
   // ---- טופס ----
   async function initForm() {
     const meta = await api('/api/meta');
@@ -48,12 +103,6 @@
     const today = new Date().toISOString().slice(0, 10);
     $('f-start').min = today;
     $('f-end').min = today;
-
-    const saved = localStorage.getItem('rb_track');
-    if (saved) {
-      $('active-banner').classList.remove('hidden');
-      $('goto-track').onclick = (e) => { e.preventDefault(); openTrack(saved); };
-    }
   }
 
   $('request-form').addEventListener('submit', async (e) => {
@@ -75,7 +124,8 @@
         urgent: $('f-urgent').checked,
         phone: $('f-phone').value,
       }});
-      localStorage.setItem('rb_track', data.trackToken);
+      addToList(data.trackToken);
+      $('request-form').reset();
       $('success-id').textContent = data.publicId;
       const link = `${location.origin}/track/${data.trackToken}`;
       $('track-link').value = link;
@@ -103,14 +153,21 @@
     pollTimer = setInterval(() => loadTrack(token, true), 20000);
   }
 
+  function goHome() {
+    clearInterval(pollTimer);
+    history.replaceState(null, '', '/');
+    showView('form');
+    renderMyOrders();
+  }
+
   async function loadTrack(token, silent) {
     try {
       const data = await api('/api/track/' + token);
+      addToList(token); // קישור שנפתח ממכשיר חדש נשמר גם בו
       renderTrack(token, data);
     } catch (err) {
       if (!silent) {
-        localStorage.removeItem('rb_track');
-        showView('form');
+        goHome();
         showMsg(err.message, 'error');
       }
     }
@@ -145,6 +202,7 @@
           <dt>סוג רכב</dt><dd>${o.carType}</dd>
           ${o.note ? `<dt>תנאים</dt><dd>${o.note}</dd>` : ''}
         </div>
+        ${o.chosen && r.status === 'נבחרה הצעה' ? '<p class="hint" style="margin-top:8px">הסוכנות קיבלה את פרטיך ותיצור איתך קשר בהקדם.</p>' : ''}
         ${o.chosen && ['נסגר', 'לא נסגר'].includes(r.status) ? `<div style="margin-top:8px">${statusBadge(r.status)}</div>` : ''}
         ${canChoose ? `<div class="btn-row"><button class="btn small" data-choose="${o.id}">בחר הצעה</button></div>` : ''}
       </div>`).join('');
@@ -155,7 +213,7 @@
           if (!confirm('לבחור את ההצעה הזו?')) return;
           try {
             await api(`/api/track/${token}/choose`, { body: { offerId: Number(btn.dataset.choose) } });
-            showMsg('ההצעה נבחרה! הסוכנות תיצור איתך קשר להשלמת ההשכרה.', 'success');
+            showMsg('ההצעה נבחרה! הסוכנות קיבלה את מספר הטלפון שלך ותיצור איתך קשר.', 'success');
             loadTrack(token, true);
           } catch (err) {
             showMsg(err.message, 'error');
@@ -165,17 +223,13 @@
     }
   }
 
-  $('new-request-btn').onclick = () => {
-    clearInterval(pollTimer);
-    localStorage.removeItem('rb_track');
-    history.replaceState(null, '', '/');
-    showView('form');
-  };
+  $('new-request-btn').onclick = goHome;
+  $('all-orders-btn').onclick = goHome;
 
   // ---- ניתוב ראשוני ----
   const m = location.pathname.match(/^\/track\/([0-9a-f]+)/);
   initForm().then(() => {
     if (m) openTrack(m[1]);
-    else showView('form');
+    else { showView('form'); renderMyOrders(); }
   }).catch(() => showMsg('שגיאה בטעינה, רעננו את הדף', 'error'));
 })();

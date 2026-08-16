@@ -32,7 +32,7 @@ router.get('/requests', requireAuth('supplier'), (req, res) => {
 
   const myOfferStmt = db.prepare('SELECT * FROM offers WHERE request_id=? AND supplier_id=?');
 
-  // ללא טלפון הלקוח — עיקרון מניעת עקיפה
+  // טלפון הלקוח נחשף אך ורק לספק שהצעתו נבחרה — עיקרון מניעת עקיפה
   res.json({
     supplier: { name: sup.name, region: sup.region },
     requests: rows.map(r => {
@@ -52,6 +52,7 @@ router.get('/requests', requireAuth('supplier'), (req, res) => {
         urgent: !!r.urgent,
         status: r.status,
         createdAt: r.created_at,
+        customerPhone: o && o.chosen ? r.phone : undefined,
         myOffer: o ? {
           id: o.id, price: o.price, priceUnit: o.price_unit, note: o.note,
           available: !!o.available, chosen: !!o.chosen, status: o.status,
