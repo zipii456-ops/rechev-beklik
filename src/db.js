@@ -128,6 +128,12 @@ function seedIfEmpty() {
     seed.admin.name, seed.admin.email, hashPassword(seed.admin.password)
   );
 
+  // בקשות דמו נטענות רק אם מבקשים במפורש (SEED_DEMO=1) — כברירת מחדל המערכת מתחילה נקייה
+  if (process.env.SEED_DEMO !== '1') {
+    console.log('נתוני בסיס נטענו (ספקים ואדמין בלבד, ללא בקשות דמו)');
+    return;
+  }
+
   const insReq = db.prepare(`
     INSERT INTO requests (track_token, region, neighborhood, start_date, end_date, car_type,
       driver_age, license_years, shabbat, extra_driver, urgent, phone, status)

@@ -81,6 +81,13 @@ router.post('/requests/:id/status', requireAuth('admin'), (req, res) => {
   res.json({ ok: true });
 });
 
+// ניקוי כל הבקשות וההצעות — לצורכי בדיקות (הספקים נשארים)
+router.post('/clear-requests', requireAuth('admin'), (req, res) => {
+  db.prepare('DELETE FROM offers').run();
+  db.prepare('DELETE FROM requests').run();
+  res.json({ ok: true });
+});
+
 // הוספת ספק
 router.post('/suppliers', requireAuth('admin'), (req, res) => {
   const b = req.body || {};

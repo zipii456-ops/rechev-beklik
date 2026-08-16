@@ -86,7 +86,10 @@
   // ---- בקשות ----
   function renderRequests() {
     const rows = overview.requests;
-    $('tab-requests').innerHTML = rows.length ? `
+    const clearBtn = `<div class="btn-row" style="margin-bottom:12px">
+      <button class="btn small danger-outline" id="clear-data-btn" type="button">🧹 נקה את כל הבקשות וההצעות</button>
+    </div>`;
+    $('tab-requests').innerHTML = clearBtn + (rows.length ? `
       <div class="table-wrap"><table>
         <thead><tr>
           <th>מזהה</th><th>אזור</th><th>שכונה</th><th>תאריכים</th><th>רכב</th>
@@ -111,7 +114,16 @@
             </td>
           </tr>`).join('')}
         </tbody>
-      </table></div>` : '<div class="card empty">אין בקשות</div>';
+      </table></div>` : '<div class="card empty">אין בקשות</div>');
+
+    $('clear-data-btn').onclick = async () => {
+      if (!confirm('למחוק את כל הבקשות וההצעות? הספקים יישארו. פעולה זו אינה הפיכה.')) return;
+      try {
+        await api('/api/admin/clear-requests', { body: {} });
+        showMsg('כל הבקשות וההצעות נמחקו — המערכת נקייה', 'success');
+        load();
+      } catch (err) { showMsg(err.message, 'error'); }
+    };
 
     document.querySelectorAll('[data-req-status]').forEach(sel => {
       sel.onchange = async () => {
