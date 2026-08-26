@@ -77,6 +77,16 @@ CREATE TABLE IF NOT EXISTS offers (
   UNIQUE(request_id, supplier_id)
 );
 
+CREATE TABLE IF NOT EXISTS supplier_cars (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  supplier_id INTEGER NOT NULL REFERENCES suppliers(id),
+  model TEXT NOT NULL,
+  car_type TEXT NOT NULL,
+  photo TEXT,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
   role TEXT NOT NULL,
@@ -92,6 +102,9 @@ if (!offerCols.includes('price_unit')) {
 }
 if (!offerCols.includes('car_model')) {
   db.exec('ALTER TABLE offers ADD COLUMN car_model TEXT');
+}
+if (!offerCols.includes('car_id')) {
+  db.exec('ALTER TABLE offers ADD COLUMN car_id INTEGER REFERENCES supplier_cars(id)');
 }
 
 function hashPassword(password) {

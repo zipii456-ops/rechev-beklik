@@ -9,7 +9,7 @@ const adminRoutes = require('./src/routes/admin');
 seedIfEmpty();
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '2mb' })); // תמונות רכב מגיעות כ-data URL מוקטן
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api', customerRoutes);

@@ -64,16 +64,19 @@ router.get('/track/:token', (req, res) => {
   if (!r) return res.status(404).json({ error: 'הבקשה לא נמצאה' });
 
   // ללא פרטי ספק — רק מחיר, סוג רכב ותנאים
+  // ללא פרטי ספק — רק הרכב (דגם + תמונה), מחיר ותנאים
   const offers = db.prepare(`
-    SELECT id, price, price_unit, car_type, car_model, note, chosen, status
-    FROM offers WHERE request_id=? AND available=1
-    ORDER BY chosen DESC, price ASC`).all(r.id);
+    SELECT o.id, o.price, o.price_unit, o.car_type, o.car_model, o.note, o.chosen, o.status,
+           c.photo AS car_photo
+    FROM offers o LEFT JOIN supplier_cars c ON c.id = o.car_id
+    WHERE o.request_id=? AND o.available=1
+    ORDER BY o.chosen DESC, o.price ASC`).all(r.id);
 
   res.json({
     request: customerRequestView(r),
     offers: offers.map(o => ({
       id: o.id, price: o.price, priceUnit: o.price_unit, carType: o.car_type,
-      carModel: o.car_model, note: o.note,
+      carModel: o.car_model, carPhoto: o.car_photo, note: o.note,
       chosen: !!o.chosen, status: o.status,
     })),
   });

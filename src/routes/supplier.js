@@ -1,6 +1,6 @@
-// API ספק — בקשות מהאזור שלו בלבד, ללא טלפון לקוח
+// API ספק — בקשות מהאזור שלו בלבד, צי רכבים, הצעות, וסטטוס סופי
 const express = require('express');
-const { db, FINAL_STATUSES, PRICE_UNITS, verifyPassword } = require('../db');
+const { db, CAR_TYPES, FINAL_STATUSES, PRICE_UNITS, verifyPassword } = require('../db');
 const { createSession, destroySession, requireAuth } = require('../auth');
 
 const router = express.Router();
@@ -21,6 +21,42 @@ router.post('/logout', requireAuth('supplier'), (req, res) => {
   res.json({ ok: true });
 });
 
+// ===== צי הרכבים של הספק =====
+const carView = (c) => ({ id: c.id, model: c.model, carType: c.car_type, photo: c.photo });
+
+router.get('/cars', requireAuth('supplier'), (req, res) => {
+  const cars = db.prepare(
+    'SELECT * FROM supplier_cars WHERE supplier_id=? AND active=1 ORDER BY car_type, model'
+  ).all(req.supplier.id);
+  res.json({ cars: cars.map(carView) });
+});
+
+router.post('/cars', requireAuth('supplier'), (req, res) => {
+  const b = req.body || {};
+  const model = String(b.model || '').trim().slice(0, 60);
+  if (!model) return res.status(400).json({ error: 'נא לציין דגם רכב' });
+  if (!CAR_TYPES.includes(b.carType)) return res.status(400).json({ error: 'נא לבחור סוג רכב' });
+
+  let photo = b.photo ? String(b.photo) : null;
+  if (photo) {
+    if (!/^data:image\/(jpeg|png|webp);base64,/.test(photo)) return res.status(400).json({ error: 'קובץ תמונה לא תקין' });
+    if (photo.length > 700000) return res.status(400).json({ error: 'התמונה גדולה מדי' });
+  }
+
+  const info = db.prepare('INSERT INTO supplier_cars (supplier_id, model, car_type, photo) VALUES (?,?,?,?)')
+    .run(req.supplier.id, model, b.carType, photo);
+  res.json({ ok: true, id: Number(info.lastInsertRowid) });
+});
+
+// הסרה רכה — הצעות ישנות שמקושרות לרכב שומרות את התמונה
+router.delete('/cars/:id', requireAuth('supplier'), (req, res) => {
+  const info = db.prepare('UPDATE supplier_cars SET active=0 WHERE id=? AND supplier_id=?')
+    .run(Number(req.params.id), req.supplier.id);
+  if (!info.changes) return res.status(404).json({ error: 'הרכב לא נמצא' });
+  res.json({ ok: true });
+});
+
+// ===== בקשות =====
 // הבקשות הרלוונטיות לספק: פתוחות באזור שלו, או כאלה שכבר הגיש להן הצעה
 router.get('/requests', requireAuth('supplier'), (req, res) => {
   const sup = req.supplier;
@@ -30,7 +66,10 @@ router.get('/requests', requireAuth('supplier'), (req, res) => {
       AND (r.status = 'חדש' OR EXISTS (SELECT 1 FROM offers o WHERE o.request_id = r.id AND o.supplier_id = ?))
     ORDER BY r.urgent DESC, r.created_at DESC`).all(sup.region, sup.id);
 
-  const myOfferStmt = db.prepare('SELECT * FROM offers WHERE request_id=? AND supplier_id=?');
+  const myOfferStmt = db.prepare(`
+    SELECT o.*, c.photo AS car_photo FROM offers o
+    LEFT JOIN supplier_cars c ON c.id = o.car_id
+    WHERE o.request_id=? AND o.supplier_id=?`);
 
   // טלפון הלקוח נחשף אך ורק לספק שהצעתו נבחרה — עיקרון מניעת עקיפה
   res.json({
@@ -54,7 +93,8 @@ router.get('/requests', requireAuth('supplier'), (req, res) => {
         createdAt: r.created_at,
         customerPhone: o && o.chosen ? r.phone : undefined,
         myOffer: o ? {
-          id: o.id, price: o.price, priceUnit: o.price_unit, carModel: o.car_model, note: o.note,
+          id: o.id, price: o.price, priceUnit: o.price_unit,
+          carId: o.car_id, carModel: o.car_model, carPhoto: o.car_photo, note: o.note,
           available: !!o.available, chosen: !!o.chosen, status: o.status,
         } : null,
       };
@@ -62,7 +102,7 @@ router.get('/requests', requireAuth('supplier'), (req, res) => {
   });
 });
 
-// הגשת הצעה או ציון חוסר זמינות (available:false)
+// הגשת הצעה (רכב מהצי + מחיר) או ציון חוסר זמינות (available:false)
 router.post('/requests/:id/offers', requireAuth('supplier'), (req, res) => {
   const sup = req.supplier;
   const r = db.prepare('SELECT * FROM requests WHERE id=?').get(Number(req.params.id));
@@ -72,26 +112,28 @@ router.post('/requests/:id/offers', requireAuth('supplier'), (req, res) => {
   const b = req.body || {};
   const available = b.available !== false;
   let price = null;
+  let car = null;
   if (available) {
     price = Number(b.price);
     if (!price || price <= 0) return res.status(400).json({ error: 'נא להזין מחיר' });
+    car = db.prepare('SELECT * FROM supplier_cars WHERE id=? AND supplier_id=? AND active=1')
+      .get(Number(b.carId), sup.id);
+    if (!car) return res.status(400).json({ error: 'נא לבחור רכב מהצי שלך' });
   }
   const priceUnit = PRICE_UNITS.includes(b.priceUnit) ? b.priceUnit : 'ליום';
-  const carType = String(b.carType || r.car_type);
-  const carModel = String(b.carModel || '').trim().slice(0, 60) || null;
-  if (available && !carModel) return res.status(400).json({ error: 'נא לציין דגם רכב' });
   const note = String(b.note || '').trim() || null;
 
   const existing = db.prepare('SELECT * FROM offers WHERE request_id=? AND supplier_id=?').get(r.id, sup.id);
   if (existing && existing.chosen) {
     return res.status(400).json({ error: 'ההצעה כבר נבחרה על ידי הלקוח ולא ניתן לשנותה' });
   }
+  const values = [price, priceUnit, car ? car.car_type : r.car_type, car ? car.model : null, car ? car.id : null, note, available ? 1 : 0];
   if (existing) {
-    db.prepare(`UPDATE offers SET price=?, price_unit=?, car_type=?, car_model=?, note=?, available=?, status='הצעה נשלחה' WHERE id=?`)
-      .run(price, priceUnit, carType, carModel, note, available ? 1 : 0, existing.id);
+    db.prepare(`UPDATE offers SET price=?, price_unit=?, car_type=?, car_model=?, car_id=?, note=?, available=?, status='הצעה נשלחה' WHERE id=?`)
+      .run(...values, existing.id);
   } else {
-    db.prepare(`INSERT INTO offers (request_id, supplier_id, price, price_unit, car_type, car_model, note, available) VALUES (?,?,?,?,?,?,?,?)`)
-      .run(r.id, sup.id, price, priceUnit, carType, carModel, note, available ? 1 : 0);
+    db.prepare(`INSERT INTO offers (price, price_unit, car_type, car_model, car_id, note, available, request_id, supplier_id) VALUES (?,?,?,?,?,?,?,?,?)`)
+      .run(...values, r.id, sup.id);
   }
   res.json({ ok: true });
 });

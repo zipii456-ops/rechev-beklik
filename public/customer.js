@@ -198,6 +198,7 @@
           ${o.chosen ? '<span class="badge chosen">ההצעה שנבחרה</span>' : ''}
         </div>
         ${o.carModel ? `<div class="car-model">🚗 ${o.carModel}</div>` : ''}
+        ${o.carPhoto ? `<img class="car-photo" src="${o.carPhoto}" alt="${o.carModel || ''}">` : ''}
         <div class="kv" style="margin-top:6px">
           <dt>סוג רכב</dt><dd>${o.carType}</dd>
           ${o.note ? `<dt>תנאים</dt><dd>${o.note}</dd>` : ''}
