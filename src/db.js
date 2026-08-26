@@ -158,6 +158,37 @@ if (!offerCols.includes('car_id')) {
   db.exec('ALTER TABLE offers ADD COLUMN car_id INTEGER REFERENCES supplier_cars(id)');
 }
 
+// מעבר לכמה הצעות (רכבים) מאותו ספק לאותה בקשה — הסרת המגבלה הישנה
+const offersSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='offers'").get();
+if (offersSql && /UNIQUE\(request_id, supplier_id\)/.test(offersSql.sql)) {
+  db.exec('PRAGMA foreign_keys=OFF');
+  db.exec(`
+    CREATE TABLE offers_new (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      request_id INTEGER NOT NULL REFERENCES requests(id),
+      supplier_id INTEGER NOT NULL REFERENCES suppliers(id),
+      car_id INTEGER REFERENCES supplier_cars(id),
+      price INTEGER,
+      price_unit TEXT NOT NULL DEFAULT 'ליום',
+      car_type TEXT,
+      car_model TEXT,
+      note TEXT,
+      available INTEGER NOT NULL DEFAULT 1,
+      chosen INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'הצעה נשלחה',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    INSERT INTO offers_new (id, request_id, supplier_id, car_id, price, price_unit, car_type, car_model, note, available, chosen, status, created_at)
+      SELECT id, request_id, supplier_id, car_id, price, price_unit, car_type, car_model, note, available, chosen, status, created_at FROM offers;
+    DROP TABLE offers;
+    ALTER TABLE offers_new RENAME TO offers;
+  `);
+  db.exec('PRAGMA foreign_keys=ON');
+  console.log('טבלת ההצעות עודכנה — ניתן להציע כמה רכבים לאותה בקשה');
+}
+// רכב אחד יכול להופיע פעם אחת בלבד בכל בקשה
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_offer_request_car ON offers(request_id, car_id) WHERE car_id IS NOT NULL');
+
 const carCols = db.prepare('PRAGMA table_info(supplier_cars)').all().map(c => c.name);
 if (!carCols.includes('gearbox')) {
   db.exec("ALTER TABLE supplier_cars ADD COLUMN gearbox TEXT NOT NULL DEFAULT 'אוטומטי'");

@@ -1,4 +1,4 @@
-// API ספק — בקשות מהאזור שלו בלבד, צי רכבים, הצעות, וסטטוס סופי
+// API ספק — בקשות מהאזור שלו בלבד, צי רכבים, הצעות (כמה רכבים לבקשה), וסטטוס סופי
 const express = require('express');
 const { db, CAR_TYPES, GEARBOXES, FINAL_STATUSES, PRICE_UNITS, verifyPassword, resolveCarImage } = require('../db');
 const { createSession, destroySession, requireAuth } = require('../auth');
@@ -39,7 +39,6 @@ router.post('/cars', requireAuth('supplier'), (req, res) => {
 
   // התמונה נקבעת אוטומטית לפי הדגם (כמו ב-Booking), מהקטלוג
   const photo = resolveCarImage(model, b.carType);
-
   const gearbox = GEARBOXES.includes(b.gearbox) ? b.gearbox : 'אוטומטי';
   const info = db.prepare('INSERT INTO supplier_cars (supplier_id, model, car_type, gearbox, photo) VALUES (?,?,?,?,?)')
     .run(req.supplier.id, model, b.carType, gearbox, photo);
@@ -62,8 +61,8 @@ router.patch('/cars/:id', requireAuth('supplier'), (req, res) => {
   db.prepare('UPDATE supplier_cars SET model=?, car_type=?, gearbox=?, photo=? WHERE id=?')
     .run(model, b.carType, gearbox, photo, car.id);
 
-  // הצעות פתוחות שמשתמשות ברכב מתעדכנות גם הן; הצעות שכבר נבחרו נשארות כפי שהיו
-  db.prepare(`UPDATE offers SET car_model=?, car_type=? WHERE car_id=? AND chosen=0`)
+  // הצעות פתוחות שמשתמשות ברכב מתעדכנות; הצעות שכבר נבחרו נשארות כפי שהיו
+  db.prepare('UPDATE offers SET car_model=?, car_type=? WHERE car_id=? AND chosen=0')
     .run(model, b.carType, car.id);
 
   res.json({ ok: true, photo, gearbox });
@@ -87,16 +86,19 @@ router.get('/requests', requireAuth('supplier'), (req, res) => {
       AND (r.status = 'חדש' OR EXISTS (SELECT 1 FROM offers o WHERE o.request_id = r.id AND o.supplier_id = ?))
     ORDER BY r.urgent DESC, r.created_at DESC`).all(sup.region, sup.id);
 
-  const myOfferStmt = db.prepare(`
-    SELECT o.*, c.photo AS car_photo, c.gearbox AS car_gearbox FROM offers o
-    LEFT JOIN supplier_cars c ON c.id = o.car_id
-    WHERE o.request_id=? AND o.supplier_id=?`);
+  const myOffersStmt = db.prepare(`
+    SELECT o.*, c.photo AS car_photo, c.gearbox AS car_gearbox
+    FROM offers o LEFT JOIN supplier_cars c ON c.id = o.car_id
+    WHERE o.request_id=? AND o.supplier_id=?
+    ORDER BY o.chosen DESC, o.price ASC`);
 
   // טלפון הלקוח נחשף אך ורק לספק שהצעתו נבחרה — עיקרון מניעת עקיפה
   res.json({
     supplier: { name: sup.name, region: sup.region },
     requests: rows.map(r => {
-      const o = myOfferStmt.get(r.id, sup.id);
+      const all = myOffersStmt.all(r.id, sup.id);
+      const carOffers = all.filter(o => o.available);
+      const won = all.some(o => o.chosen);
       return {
         id: r.id,
         publicId: r.public_id,
@@ -107,23 +109,24 @@ router.get('/requests', requireAuth('supplier'), (req, res) => {
         carType: r.car_type,
         driverAge: r.driver_age,
         licenseYears: r.license_years,
-        shabbat: !!r.shabbat,
         extraDriver: !!r.extra_driver,
         urgent: !!r.urgent,
         status: r.status,
         createdAt: r.created_at,
-        customerPhone: o && o.chosen ? r.phone : undefined,
-        myOffer: o ? {
+        customerPhone: won ? r.phone : undefined,
+        markedUnavailable: all.length > 0 && carOffers.length === 0,
+        myOffers: carOffers.map(o => ({
           id: o.id, price: o.price, priceUnit: o.price_unit,
-          carId: o.car_id, carModel: o.car_model, carPhoto: o.car_photo, gearbox: o.car_gearbox, note: o.note,
-          available: !!o.available, chosen: !!o.chosen, status: o.status,
-        } : null,
+          carId: o.car_id, carModel: o.car_model, carType: o.car_type,
+          carPhoto: o.car_photo, gearbox: o.car_gearbox, note: o.note,
+          chosen: !!o.chosen, status: o.status,
+        })),
       };
     }),
   });
 });
 
-// הגשת הצעה (רכב מהצי + מחיר) או ציון חוסר זמינות (available:false)
+// הגשת הצעות: רשימת רכבים מהצי, כל אחד עם מחיר. או סימון חוסר זמינות.
 router.post('/requests/:id/offers', requireAuth('supplier'), (req, res) => {
   const sup = req.supplier;
   const r = db.prepare('SELECT * FROM requests WHERE id=?').get(Number(req.params.id));
@@ -131,31 +134,65 @@ router.post('/requests/:id/offers', requireAuth('supplier'), (req, res) => {
   if (r.status !== 'חדש') return res.status(400).json({ error: 'הבקשה כבר אינה פתוחה להצעות' });
 
   const b = req.body || {};
-  const available = b.available !== false;
-  let price = null;
-  let car = null;
-  if (available) {
-    price = Number(b.price);
-    if (!price || price <= 0) return res.status(400).json({ error: 'נא להזין מחיר' });
-    car = db.prepare('SELECT * FROM supplier_cars WHERE id=? AND supplier_id=? AND active=1')
-      .get(Number(b.carId), sup.id);
-    if (!car) return res.status(400).json({ error: 'נא לבחור רכב מהצי שלך' });
+
+  // סימון "אין זמינות" — מסיר את ההצעות הקיימות ומשאיר סימון אחד
+  if (b.available === false) {
+    db.prepare('DELETE FROM offers WHERE request_id=? AND supplier_id=? AND chosen=0').run(r.id, sup.id);
+    db.prepare('INSERT INTO offers (request_id, supplier_id, available, car_type) VALUES (?,?,0,?)')
+      .run(r.id, sup.id, r.car_type);
+    return res.json({ ok: true });
   }
+
+  const items = Array.isArray(b.offers) ? b.offers : [];
+  if (!items.length) return res.status(400).json({ error: 'נא לבחור לפחות רכב אחד ולהזין מחיר' });
+  if (items.length > 10) return res.status(400).json({ error: 'ניתן להציע עד 10 רכבים לבקשה' });
+
   const priceUnit = PRICE_UNITS.includes(b.priceUnit) ? b.priceUnit : 'ליום';
   const note = String(b.note || '').trim() || null;
 
-  const existing = db.prepare('SELECT * FROM offers WHERE request_id=? AND supplier_id=?').get(r.id, sup.id);
-  if (existing && existing.chosen) {
-    return res.status(400).json({ error: 'ההצעה כבר נבחרה על ידי הלקוח ולא ניתן לשנותה' });
+  // ולידציה מלאה לפני כתיבה — או שהכול נשמר, או ששום דבר לא נשמר
+  const prepared = [];
+  for (const item of items) {
+    const price = Number(item.price);
+    if (!price || price <= 0) return res.status(400).json({ error: 'נא להזין מחיר לכל רכב שנבחר' });
+    const car = db.prepare('SELECT * FROM supplier_cars WHERE id=? AND supplier_id=? AND active=1')
+      .get(Number(item.carId), sup.id);
+    if (!car) return res.status(400).json({ error: 'אחד הרכבים אינו קיים בצי שלך' });
+    if (prepared.some(p => p.car.id === car.id)) {
+      return res.status(400).json({ error: 'אותו רכב נבחר יותר מפעם אחת' });
+    }
+    prepared.push({ car, price });
   }
-  const values = [price, priceUnit, car ? car.car_type : r.car_type, car ? car.model : null, car ? car.id : null, note, available ? 1 : 0];
-  if (existing) {
-    db.prepare(`UPDATE offers SET price=?, price_unit=?, car_type=?, car_model=?, car_id=?, note=?, available=?, status='הצעה נשלחה' WHERE id=?`)
-      .run(...values, existing.id);
-  } else {
-    db.prepare(`INSERT INTO offers (price, price_unit, car_type, car_model, car_id, note, available, request_id, supplier_id) VALUES (?,?,?,?,?,?,?,?,?)`)
-      .run(...values, r.id, sup.id);
+
+  // מסירים את סימון "אין זמינות" ואת הרכבים שכבר לא בהצעה (למעט הצעה שנבחרה)
+  const keepIds = prepared.map(p => p.car.id);
+  const placeholders = keepIds.map(() => '?').join(',');
+  db.prepare(`DELETE FROM offers WHERE request_id=? AND supplier_id=? AND chosen=0
+    AND (car_id IS NULL OR car_id NOT IN (${placeholders || 'NULL'}))`).run(r.id, sup.id, ...keepIds);
+
+  const upsert = db.prepare(`
+    INSERT INTO offers (request_id, supplier_id, car_id, price, price_unit, car_type, car_model, note, available)
+    VALUES (?,?,?,?,?,?,?,?,1)
+    ON CONFLICT(request_id, car_id) WHERE car_id IS NOT NULL DO UPDATE SET
+      price=excluded.price, price_unit=excluded.price_unit, car_type=excluded.car_type,
+      car_model=excluded.car_model, note=excluded.note, available=1, status='הצעה נשלחה'
+    WHERE offers.chosen=0`);
+
+  for (const { car, price } of prepared) {
+    upsert.run(r.id, sup.id, car.id, price, priceUnit, car.car_type, car.model, note);
   }
+  res.json({ ok: true, count: prepared.length });
+});
+
+// הסרת רכב בודד מההצעה
+router.delete('/offers/:id', requireAuth('supplier'), (req, res) => {
+  const offer = db.prepare('SELECT * FROM offers WHERE id=? AND supplier_id=?')
+    .get(Number(req.params.id), req.supplier.id);
+  if (!offer) return res.status(404).json({ error: 'ההצעה לא נמצאה' });
+  if (offer.chosen) return res.status(400).json({ error: 'הלקוח כבר בחר בהצעה זו ולא ניתן להסירה' });
+  const r = db.prepare('SELECT status FROM requests WHERE id=?').get(offer.request_id);
+  if (r.status !== 'חדש') return res.status(400).json({ error: 'הבקשה כבר אינה פתוחה לשינויים' });
+  db.prepare('DELETE FROM offers WHERE id=?').run(offer.id);
   res.json({ ok: true });
 });
 
