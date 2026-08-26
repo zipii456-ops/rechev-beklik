@@ -5,6 +5,7 @@ const { seedIfEmpty } = require('./src/db');
 const customerRoutes = require('./src/routes/customer');
 const supplierRoutes = require('./src/routes/supplier');
 const adminRoutes = require('./src/routes/admin');
+const demoRoutes = require('./src/routes/demo');
 
 seedIfEmpty();
 
@@ -15,11 +16,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api', customerRoutes);
 app.use('/api/supplier', supplierRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/demo', demoRoutes);
 
 // דפי הממשקים
 const page = (file) => (req, res) => res.sendFile(path.join(__dirname, 'public', file));
 app.get('/track/:token', page('index.html'));
 app.get('/supplier', page('supplier.html'));
+app.get('/demo', page('demo.html'));
 app.get('/admin', page('admin.html'));
 app.get('/healthz', (req, res) => res.json({ ok: true }));
 
