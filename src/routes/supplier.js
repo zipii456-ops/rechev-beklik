@@ -46,6 +46,29 @@ router.post('/cars', requireAuth('supplier'), (req, res) => {
   res.json({ ok: true, id: Number(info.lastInsertRowid), photo, gearbox });
 });
 
+// עריכת רכב בצי — הדגם, הסוג ותיבת ההילוכים; התמונה מתעדכנת לפי הדגם החדש
+router.patch('/cars/:id', requireAuth('supplier'), (req, res) => {
+  const car = db.prepare('SELECT * FROM supplier_cars WHERE id=? AND supplier_id=? AND active=1')
+    .get(Number(req.params.id), req.supplier.id);
+  if (!car) return res.status(404).json({ error: 'הרכב לא נמצא' });
+
+  const b = req.body || {};
+  const model = String(b.model || '').trim().slice(0, 60);
+  if (!model) return res.status(400).json({ error: 'נא לציין דגם רכב' });
+  if (!CAR_TYPES.includes(b.carType)) return res.status(400).json({ error: 'נא לבחור סוג רכב' });
+  const gearbox = GEARBOXES.includes(b.gearbox) ? b.gearbox : car.gearbox;
+  const photo = resolveCarImage(model, b.carType);
+
+  db.prepare('UPDATE supplier_cars SET model=?, car_type=?, gearbox=?, photo=? WHERE id=?')
+    .run(model, b.carType, gearbox, photo, car.id);
+
+  // הצעות פתוחות שמשתמשות ברכב מתעדכנות גם הן; הצעות שכבר נבחרו נשארות כפי שהיו
+  db.prepare(`UPDATE offers SET car_model=?, car_type=? WHERE car_id=? AND chosen=0`)
+    .run(model, b.carType, car.id);
+
+  res.json({ ok: true, photo, gearbox });
+});
+
 // הסרה רכה — הצעות ישנות שמקושרות לרכב שומרות את התמונה
 router.delete('/cars/:id', requireAuth('supplier'), (req, res) => {
   const info = db.prepare('UPDATE supplier_cars SET active=0 WHERE id=? AND supplier_id=?')

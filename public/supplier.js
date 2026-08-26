@@ -21,6 +21,7 @@
   let cars = [];
   let pollTimer = null;
   let activeTab = null;
+  let editingCarId = null;   // הרכב שנמצא כרגע בעריכה
 
   function showMsg(text, kind) {
     $('msg').innerHTML = text ? `<div class="msg ${kind}">${text}</div>` : '';
@@ -311,16 +312,50 @@
           <button class="btn small" type="submit" id="add-car-btn">הוספת רכב</button>
         </form>
       </div>
-      ${cars.length ? cars.map(c => `
+      ${cars.length ? cars.map(c => c.id === editingCarId ? carEditForm(c) : `
         <div class="card fleet-card">
           ${c.photo ? `<img class="fleet-thumb" src="${esc(c.photo)}" alt="">` : '<div class="fleet-thumb no-photo">🚗</div>'}
           <div style="flex:1">
             <strong>${esc(c.model)}</strong>
             <div class="order-sub">${esc(c.carType)} · ${esc(c.gearbox || 'אוטומטי')}</div>
           </div>
-          <button class="btn small danger-outline" data-remove-car="${c.id}">הסרה</button>
+          <div class="btn-row" style="margin:0;flex-direction:column">
+            <button class="btn small outline" data-edit-car="${c.id}">עריכה</button>
+            <button class="btn small danger-outline" data-remove-car="${c.id}">הסרה</button>
+          </div>
         </div>`).join('')
         : '<div class="card empty">עדיין אין רכבים בצי שלך — הוסיפו את הרכב הראשון למעלה</div>'}`;
+  }
+
+  // טופס עריכת רכב קיים
+  function carEditForm(c) {
+    const allModels = Object.values(meta.carModels || {}).flat();
+    return `
+      <div class="card" style="border:2px solid var(--cta)">
+        <h3>עריכת רכב</h3>
+        <form data-edit-form="${c.id}">
+          <div class="row2">
+            <div class="field">
+              <label>סוג רכב *</label>
+              <select name="carType">${meta.carTypes.map(t => `<option ${t === c.carType ? 'selected' : ''}>${t}</option>`).join('')}</select>
+            </div>
+            <div class="field">
+              <label>תיבת הילוכים</label>
+              <select name="gearbox">${(meta.gearboxes || []).map(g => `<option ${g === (c.gearbox || 'אוטומטי') ? 'selected' : ''}>${g}</option>`).join('')}</select>
+            </div>
+          </div>
+          <div class="field">
+            <label>דגם *</label>
+            <input type="text" name="model" list="all-models-edit" value="${esc(c.model)}" required autocomplete="off">
+            <datalist id="all-models-edit">${allModels.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
+          </div>
+          <div class="car-preview" data-edit-preview>${c.photo ? `<img class="car-photo" src="${esc(c.photo)}" alt=""><div class="order-sub">התמונה שתוצג ללקוח</div>` : ''}</div>
+          <div class="btn-row">
+            <button class="btn small" type="submit">שמירת השינויים</button>
+            <button class="btn small outline" type="button" data-cancel-edit>ביטול</button>
+          </div>
+        </form>
+      </div>`;
   }
 
   function bindBoard() {
@@ -410,6 +445,45 @@
         } catch (err) { showMsg(err.message, 'error'); btn.disabled = false; }
       });
     }
+    // עריכת רכב בצי
+    document.querySelectorAll('[data-edit-car]').forEach(btn => {
+      btn.onclick = () => { editingCarId = Number(btn.dataset.editCar); load(true); };
+    });
+    document.querySelectorAll('[data-cancel-edit]').forEach(btn => {
+      btn.onclick = () => { editingCarId = null; load(true); };
+    });
+    document.querySelectorAll('[data-edit-form]').forEach(form => {
+      const preview = form.querySelector('[data-edit-preview]');
+      let timer = null;
+      const updatePreview = () => {
+        clearTimeout(timer);
+        timer = setTimeout(async () => {
+          const model = form.elements.model.value.trim();
+          if (!model) { preview.innerHTML = ''; return; }
+          try {
+            const { url } = await api(`/api/car-image?model=${encodeURIComponent(model)}&type=${encodeURIComponent(form.elements.carType.value)}`);
+            preview.innerHTML = `<img class="car-photo" src="${url}" alt=""><div class="order-sub">התמונה שתוצג ללקוח</div>`;
+          } catch (e) {}
+        }, 300);
+      };
+      form.elements.model.oninput = updatePreview;
+      form.elements.carType.onchange = updatePreview;
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          await api(`/api/supplier/cars/${form.dataset.editForm}`, { method: 'PATCH', body: {
+            model: form.elements.model.value,
+            carType: form.elements.carType.value,
+            gearbox: form.elements.gearbox.value,
+          }});
+          editingCarId = null;
+          showMsg('פרטי הרכב עודכנו', 'success');
+          load(true);
+        } catch (err) { showMsg(err.message, 'error'); }
+      });
+    });
+
     document.querySelectorAll('[data-remove-car]').forEach(btn => {
       btn.onclick = async () => {
         if (!confirm('להסיר את הרכב מהצי? הצעות קיימות לא יושפעו.')) return;
