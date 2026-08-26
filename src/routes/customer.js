@@ -1,11 +1,12 @@
 // API לקוח — ללא הרשמה: יצירת בקשה, מעקב לפי טוקן, בחירת הצעה
 const express = require('express');
-const { db, REGIONS, CAR_TYPES, CAR_MODELS, CAR_CATALOG, PRICE_UNITS, newToken, publicIdFor, resolveCarImage } = require('../db');
+const { db, REGIONS, CAR_TYPES, CAR_MODELS, CAR_CATALOG, CAR_TYPE_SPECS, GEARBOXES, PRICE_UNITS, newToken, publicIdFor, resolveCarImage } = require('../db');
 
 const router = express.Router();
 
 router.get('/meta', (req, res) => {
-  res.json({ regions: REGIONS, carTypes: CAR_TYPES, carModels: CAR_MODELS, carCatalog: CAR_CATALOG, priceUnits: PRICE_UNITS });
+  res.json({ regions: REGIONS, carTypes: CAR_TYPES, carModels: CAR_MODELS, carCatalog: CAR_CATALOG,
+    carTypeSpecs: CAR_TYPE_SPECS, gearboxes: GEARBOXES, priceUnits: PRICE_UNITS });
 });
 
 // תצוגה מקדימה: איזו תמונה תתאים לדגם שהספק מקליד
@@ -68,11 +69,10 @@ router.get('/track/:token', (req, res) => {
   const r = db.prepare('SELECT * FROM requests WHERE track_token=?').get(req.params.token);
   if (!r) return res.status(404).json({ error: 'הבקשה לא נמצאה' });
 
-  // ללא פרטי ספק — רק מחיר, סוג רכב ותנאים
   // ללא פרטי ספק — רק הרכב (דגם + תמונה), מחיר ותנאים
   const offers = db.prepare(`
     SELECT o.id, o.price, o.price_unit, o.car_type, o.car_model, o.note, o.chosen, o.status,
-           c.photo AS car_photo
+           c.photo AS car_photo, c.gearbox AS car_gearbox
     FROM offers o LEFT JOIN supplier_cars c ON c.id = o.car_id
     WHERE o.request_id=? AND o.available=1
     ORDER BY o.chosen DESC, o.price ASC`).all(r.id);
@@ -81,7 +81,7 @@ router.get('/track/:token', (req, res) => {
     request: customerRequestView(r),
     offers: offers.map(o => ({
       id: o.id, price: o.price, priceUnit: o.price_unit, carType: o.car_type,
-      carModel: o.car_model, carPhoto: o.car_photo, note: o.note,
+      carModel: o.car_model, carPhoto: o.car_photo, gearbox: o.car_gearbox, note: o.note,
       chosen: !!o.chosen, status: o.status,
     })),
   });

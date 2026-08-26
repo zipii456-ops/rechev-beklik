@@ -41,6 +41,15 @@ const CAR_CATALOG = [
   { name: 'פיאט דוקאטו', type: 'מסחרי', slug: 'fiat-ducato', aliases: ['ducato', 'דוקאטו'] },
   { name: 'טויוטה פרואייס', type: 'מסחרי', slug: 'toyota-proace', aliases: ['proace', 'פרואייס'] },
 ];
+// מפרט מוצג לכל סוג רכב (מושבים/דלתות/מזוודות) — בסגנון כרטיס הרכב של בוקינג
+const CAR_TYPE_SPECS = {
+  'קטן': { seats: 5, doors: 4, bags: 2 },
+  'משפחתי': { seats: 5, doors: 5, bags: 3 },
+  '7 מקומות': { seats: 7, doors: 5, bags: 4 },
+  'מסחרי': { seats: 3, doors: 4, bags: 6 },
+};
+const GEARBOXES = ['אוטומטי', 'ידני'];
+
 // שמות הדגמים לפי סוג — לרשימה הנפתחת אצל הספק
 const CAR_MODELS = {};
 for (const c of CAR_CATALOG) (CAR_MODELS[c.type] = CAR_MODELS[c.type] || []).push(c.name);
@@ -149,6 +158,11 @@ if (!offerCols.includes('car_id')) {
   db.exec('ALTER TABLE offers ADD COLUMN car_id INTEGER REFERENCES supplier_cars(id)');
 }
 
+const carCols = db.prepare('PRAGMA table_info(supplier_cars)').all().map(c => c.name);
+if (!carCols.includes('gearbox')) {
+  db.exec("ALTER TABLE supplier_cars ADD COLUMN gearbox TEXT NOT NULL DEFAULT 'אוטומטי'");
+}
+
 function hashPassword(password) {
   const salt = crypto.randomBytes(16);
   const hash = crypto.scryptSync(String(password), salt, 32);
@@ -241,7 +255,7 @@ function seedIfEmpty() {
 }
 
 module.exports = {
-  db, REGIONS, CAR_TYPES, CAR_MODELS, CAR_CATALOG, PRICE_UNITS, REQUEST_STATUSES, FINAL_STATUSES,
+  db, REGIONS, CAR_TYPES, CAR_MODELS, CAR_CATALOG, CAR_TYPE_SPECS, GEARBOXES, PRICE_UNITS, REQUEST_STATUSES, FINAL_STATUSES,
   resolveCarImage,
   hashPassword, verifyPassword, newToken, publicIdFor, seedIfEmpty,
 };

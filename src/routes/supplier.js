@@ -1,6 +1,6 @@
 // API ספק — בקשות מהאזור שלו בלבד, צי רכבים, הצעות, וסטטוס סופי
 const express = require('express');
-const { db, CAR_TYPES, FINAL_STATUSES, PRICE_UNITS, verifyPassword, resolveCarImage } = require('../db');
+const { db, CAR_TYPES, GEARBOXES, FINAL_STATUSES, PRICE_UNITS, verifyPassword, resolveCarImage } = require('../db');
 const { createSession, destroySession, requireAuth } = require('../auth');
 
 const router = express.Router();
@@ -22,7 +22,7 @@ router.post('/logout', requireAuth('supplier'), (req, res) => {
 });
 
 // ===== צי הרכבים של הספק =====
-const carView = (c) => ({ id: c.id, model: c.model, carType: c.car_type, photo: c.photo });
+const carView = (c) => ({ id: c.id, model: c.model, carType: c.car_type, gearbox: c.gearbox, photo: c.photo });
 
 router.get('/cars', requireAuth('supplier'), (req, res) => {
   const cars = db.prepare(
@@ -40,9 +40,10 @@ router.post('/cars', requireAuth('supplier'), (req, res) => {
   // התמונה נקבעת אוטומטית לפי הדגם (כמו ב-Booking), מהקטלוג
   const photo = resolveCarImage(model, b.carType);
 
-  const info = db.prepare('INSERT INTO supplier_cars (supplier_id, model, car_type, photo) VALUES (?,?,?,?)')
-    .run(req.supplier.id, model, b.carType, photo);
-  res.json({ ok: true, id: Number(info.lastInsertRowid), photo });
+  const gearbox = GEARBOXES.includes(b.gearbox) ? b.gearbox : 'אוטומטי';
+  const info = db.prepare('INSERT INTO supplier_cars (supplier_id, model, car_type, gearbox, photo) VALUES (?,?,?,?,?)')
+    .run(req.supplier.id, model, b.carType, gearbox, photo);
+  res.json({ ok: true, id: Number(info.lastInsertRowid), photo, gearbox });
 });
 
 // הסרה רכה — הצעות ישנות שמקושרות לרכב שומרות את התמונה
@@ -64,7 +65,7 @@ router.get('/requests', requireAuth('supplier'), (req, res) => {
     ORDER BY r.urgent DESC, r.created_at DESC`).all(sup.region, sup.id);
 
   const myOfferStmt = db.prepare(`
-    SELECT o.*, c.photo AS car_photo FROM offers o
+    SELECT o.*, c.photo AS car_photo, c.gearbox AS car_gearbox FROM offers o
     LEFT JOIN supplier_cars c ON c.id = o.car_id
     WHERE o.request_id=? AND o.supplier_id=?`);
 
@@ -91,7 +92,7 @@ router.get('/requests', requireAuth('supplier'), (req, res) => {
         customerPhone: o && o.chosen ? r.phone : undefined,
         myOffer: o ? {
           id: o.id, price: o.price, priceUnit: o.price_unit,
-          carId: o.car_id, carModel: o.car_model, carPhoto: o.car_photo, note: o.note,
+          carId: o.car_id, carModel: o.car_model, carPhoto: o.car_photo, gearbox: o.car_gearbox, note: o.note,
           available: !!o.available, chosen: !!o.chosen, status: o.status,
         } : null,
       };

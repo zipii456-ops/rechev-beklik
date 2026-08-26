@@ -1,9 +1,12 @@
-// אפליקציית לקוח — טופס בקשה, אזור אישי (היסטוריית הזמנות מהמכשיר), מעקב ובחירת הצעה
+// אפליקציית לקוח — טופס בקשה, אזור אישי, מעקב ובחירת הצעה (עיצוב בסגנון בוקינג)
 (function () {
   const $ = (id) => document.getElementById(id);
   const LIST_KEY = 'rb_track_list';
   const msgEl = $('msg');
   let pollTimer = null;
+  let meta = { carTypeSpecs: {} };
+  let sortBy = 'price';   // price | model
+  let lastTrack = null;   // { token, data }
 
   function showMsg(text, kind) {
     msgEl.innerHTML = text ? `<div class="msg ${kind}">${text}</div>` : '';
@@ -14,6 +17,7 @@
     for (const v of ['view-form', 'view-success', 'view-track']) {
       $(v).classList.toggle('hidden', v !== 'view-' + name);
     }
+    $('search-summary').innerHTML = '';
     showMsg('');
   }
 
@@ -28,26 +32,18 @@
     return data;
   }
 
-  const fmtDate = (iso) => {
-    const [y, m, d] = iso.split('-');
-    return `${d}.${m}.${y}`;
-  };
-
   const statusBadge = (status) => {
     const cls = { 'ממתין להצעות': 'waiting', 'נבחרה הצעה': 'chosen', 'נסגר': 'closed', 'לא נסגר': 'lost' }[status] || 'waiting';
     return `<span class="badge ${cls}">${status}</span>`;
   };
 
   // ---- האזור האישי: רשימת הזמנות ששמורה במכשיר ----
-  function getList() {
-    try { return JSON.parse(localStorage.getItem(LIST_KEY)) || []; } catch (e) { return []; }
-  }
-  function saveList(list) { localStorage.setItem(LIST_KEY, JSON.stringify(list)); }
+  const getList = () => { try { return JSON.parse(localStorage.getItem(LIST_KEY)) || []; } catch (e) { return []; } };
+  const saveList = (l) => localStorage.setItem(LIST_KEY, JSON.stringify(l));
   function addToList(token) {
     const list = getList();
     if (!list.includes(token)) { list.unshift(token); saveList(list); }
   }
-  // תאימות לגרסה קודמת ששמרה בקשה אחת בלבד
   (function migrate() {
     const old = localStorage.getItem('rb_track');
     if (old) { addToList(old); localStorage.removeItem('rb_track'); }
@@ -68,13 +64,12 @@
         rows.push(`
           <div class="order-row" data-open="${token}">
             <div>
-              <strong>${r.publicId}</strong> · ${r.carType} · ${r.region}
-              <div class="order-sub">${fmtDate(r.startDate)}–${fmtDate(r.endDate)} · ${data.offers.length} הצעות</div>
+              <strong>${r.publicId}</strong> · ${RB.esc(r.carType)} · ${RB.esc(r.region)}
+              <div class="order-sub">${RB.fmtDate(r.startDate)}–${RB.fmtDate(r.endDate)} · ${data.offers.length} הצעות</div>
             </div>
             ${statusBadge(r.status)}
           </div>`);
       } catch (e) {
-        // בקשה שכבר לא קיימת (למשל אחרי ניקוי נתונים) — מוסרת מהרשימה
         if (e.status !== 404) stillValid.push(token);
       }
     }
@@ -83,23 +78,20 @@
     box.innerHTML = rows.length ? `
       <div class="card">
         <h2>ההזמנות שלי</h2>
-        <p class="hint">ההזמנות ששלחת מהמכשיר הזה — לחצי על הזמנה לצפייה בהצעות ובסטטוס.</p>
+        <p class="hint">ההזמנות ששלחת מהמכשיר הזה — לחצו על הזמנה לצפייה בהצעות ובסטטוס.</p>
         ${rows.join('')}
       </div>` : '';
 
-    box.querySelectorAll('[data-open]').forEach(el => {
-      el.onclick = () => openTrack(el.dataset.open);
-    });
+    box.querySelectorAll('[data-open]').forEach(el => { el.onclick = () => openTrack(el.dataset.open); });
   }
 
   // ---- טופס ----
   async function initForm() {
-    const meta = await api('/api/meta');
+    meta = await api('/api/meta');
     $('f-region').innerHTML = '<option value="" disabled selected>בחרו אזור</option>' +
       meta.regions.map(r => `<option>${r}</option>`).join('');
     $('f-cartype').innerHTML = '<option value="" disabled selected>בחרו סוג רכב</option>' +
       meta.carTypes.map(c => `<option>${c}</option>`).join('');
-
     const today = new Date().toISOString().slice(0, 10);
     $('f-start').min = today;
     $('f-end').min = today;
@@ -162,63 +154,88 @@
   async function loadTrack(token, silent) {
     try {
       const data = await api('/api/track/' + token);
-      addToList(token); // קישור שנפתח ממכשיר חדש נשמר גם בו
-      renderTrack(token, data);
+      addToList(token);
+      lastTrack = { token, data };
+      renderTrack();
     } catch (err) {
-      if (!silent) {
-        goHome();
-        showMsg(err.message, 'error');
-      }
+      if (!silent) { goHome(); showMsg(err.message, 'error'); }
     }
   }
 
-  function renderTrack(token, data) {
+  function renderTrack() {
+    const { token, data } = lastTrack;
     const r = data.request;
+    const days = RB.rentalDays(r.startDate, r.endDate);
+
+    // פס סיכום החיפוש — בראש העמוד, מסגרת צהובה
+    $('search-summary').innerHTML = RB.searchBox(
+      `${r.region} — ${r.neighborhood}`,
+      `${RB.fmtDate(r.startDate)} – ${RB.fmtDate(r.endDate)} · ${RB.daysText(days)} · ${r.carType}`
+    );
+
     $('track-status').innerHTML = statusBadge(r.status);
     $('track-id').textContent = 'מספר בקשה: ' + r.publicId;
-    $('track-details').innerHTML = `
-      <dt>אזור</dt><dd>${r.region} — ${r.neighborhood}</dd>
-      <dt>תאריכים</dt><dd>${fmtDate(r.startDate)} עד ${fmtDate(r.endDate)}</dd>
-      <dt>סוג רכב</dt><dd>${r.carType}</dd>` +
-      (r.urgent ? '<dt>דחיפות</dt><dd><span class="tag urgent">דרוש מיידי</span></dd>' : '');
 
-    const offers = data.offers;
-    $('offers-count').textContent = offers.length;
+    const offers = data.offers.slice();
     const canChoose = r.status === 'ממתין להצעות';
+    $('offers-count').textContent = offers.length;
 
     if (!offers.length) {
-      $('offers-list').innerHTML = `<div class="card empty">עדיין לא התקבלו הצעות.<br>הסוכנויות באזור שלך קיבלו את הבקשה — כדאי לבדוק שוב בקרוב.</div>`;
+      $('offers-toolbar').innerHTML = '';
+      $('offers-list').innerHTML = `<div class="card empty">עדיין לא התקבלו הצעות.<br>
+        סוכנויות ההשכרה באזור שלך קיבלו את הבקשה — כדאי לבדוק שוב בקרוב.</div>`;
       return;
     }
 
-    $('offers-list').innerHTML = offers.map(o => `
-      <div class="offer-card ${o.chosen ? 'chosen' : ''}">
-        <div class="req-head">
-          <div class="offer-price">₪${o.price} <small>${o.priceUnit || ''}</small></div>
-          ${o.chosen ? '<span class="badge chosen">ההצעה שנבחרה</span>' : ''}
-        </div>
-        ${o.carModel ? `<div class="car-model">🚗 ${o.carModel} <small class="similar">או רכב דומה</small></div>` : ''}
-        ${o.carPhoto ? `<img class="car-photo" src="${o.carPhoto}" alt="${o.carModel || ''}">` : ''}
-        <div class="kv" style="margin-top:6px">
-          <dt>סוג רכב</dt><dd>${o.carType}</dd>
-          ${o.note ? `<dt>תנאים</dt><dd>${o.note}</dd>` : ''}
-        </div>
-        ${o.chosen && r.status === 'נבחרה הצעה' ? `<p class="hint" style="margin-top:8px">הרכב שבחרת: <strong>${o.carModel || o.carType}</strong>. הסוכנות קיבלה את פרטיך ותיצור איתך קשר בהקדם.</p>` : ''}
-        ${o.chosen && ['נסגר', 'לא נסגר'].includes(r.status) ? `<div style="margin-top:8px">${statusBadge(r.status)}</div>` : ''}
-        ${canChoose ? `<div class="btn-row"><button class="btn small" data-choose="${o.id}">בחר הצעה</button></div>` : ''}
-      </div>`).join('');
+    // שורת מיון דביקה, כמו בבוקינג
+    $('offers-toolbar').innerHTML = `
+      <div class="toolbar">
+        <button data-sort="price" class="${sortBy === 'price' ? 'on' : ''}">מחיר: מהזול ליקר</button>
+        <button data-sort="expensive" class="${sortBy === 'expensive' ? 'on' : ''}">מחיר: מהיקר לזול</button>
+        <button data-sort="model" class="${sortBy === 'model' ? 'on' : ''}">דגם</button>
+      </div>`;
+    document.querySelectorAll('[data-sort]').forEach(b => {
+      b.onclick = () => { sortBy = b.dataset.sort; renderTrack(); };
+    });
+
+    offers.sort((a, b) => {
+      if (a.chosen !== b.chosen) return b.chosen - a.chosen; // ההצעה שנבחרה תמיד ראשונה
+      if (sortBy === 'expensive') return b.price - a.price;
+      if (sortBy === 'model') return String(a.carModel || '').localeCompare(String(b.carModel || ''), 'he');
+      return a.price - b.price;
+    });
+
+    const cheapest = Math.min(...offers.map(o => o.price));
+
+    $('offers-list').innerHTML = offers.map(o => {
+      let ribbon = null;
+      if (o.chosen && r.status === 'נסגר') ribbon = { text: '✓ ההזמנה הושלמה', cls: '' };
+      else if (o.chosen && r.status === 'לא נסגר') ribbon = { text: 'העסקה לא נסגרה', cls: 'grey' };
+      else if (o.chosen) ribbon = { text: '✓ בחרת בהצעה הזו — הסוכנות תיצור איתך קשר', cls: '' };
+      else if (canChoose && o.price === cheapest && offers.length > 1) ribbon = { text: '★ המחיר הזול ביותר', cls: 'gold' };
+
+      return RB.carCard({
+        model: o.carModel || o.carType,
+        similar: !!o.carModel,
+        photo: o.carPhoto,
+        chosen: o.chosen,
+        ribbon,
+        specs: RB.specRows(o, meta.carTypeSpecs),
+        place: { title: r.region, sub: 'איסוף באזור ' + r.neighborhood },
+        price: RB.priceBlock(o, days),
+        actions: canChoose ? `<button class="btn" data-choose="${o.id}">בחירת הצעה זו</button>` : '',
+      });
+    }).join('');
 
     if (canChoose) {
       document.querySelectorAll('[data-choose]').forEach(btn => {
         btn.onclick = async () => {
-          if (!confirm('לבחור את ההצעה הזו?')) return;
+          if (!confirm('לבחור את ההצעה הזו? הסוכנות תקבל את מספר הטלפון שלך ותיצור איתך קשר.')) return;
           try {
             await api(`/api/track/${token}/choose`, { body: { offerId: Number(btn.dataset.choose) } });
             showMsg('ההצעה נבחרה! הסוכנות קיבלה את מספר הטלפון שלך ותיצור איתך קשר.', 'success');
             loadTrack(token, true);
-          } catch (err) {
-            showMsg(err.message, 'error');
-          }
+          } catch (err) { showMsg(err.message, 'error'); }
         };
       });
     }

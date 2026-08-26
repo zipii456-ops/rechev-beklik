@@ -1,258 +1,289 @@
-/* רכב בקליק — עיצוב משותף. Mobile-first, RTL, צבעי הלוגו: נייבי + זהב + כחול */
+/* רכב בקליק — עיצוב בהשראת בוקינג: כחול כהה, צהוב, כרטיסי רכב לבנים. Mobile-first, RTL */
 :root {
-  --navy: #151a35;
-  --navy-2: #1e2547;
-  --gold: #d4a944;
-  --gold-dark: #b8912f;
-  --blue: #4da3ff;
-  --bg: #f2f3f8;
+  --blue: #003b95;          /* פס עליון וכותרות */
+  --blue-dark: #002f77;
+  --cta: #0071c2;           /* כפתורים וקישורים */
+  --cta-hover: #00487a;
+  --yellow: #febb02;        /* מסגרת החיפוש והדגשות */
+  --text: #1a1a1a;
+  --muted: #595959;
+  --line: #e7e7e7;
+  --bg: #f5f5f5;
   --card: #ffffff;
-  --text: #1c2135;
-  --muted: #6b7186;
-  --line: #e3e5ee;
-  --green: #1f9d55;
-  --red: #d64545;
-  --radius: 14px;
+  --green: #008009;
+  --green-bg: #e7f7e7;
+  --red: #cc0000;
+  --red-bg: #fdeaea;
+  --blue-bg: #ebf3ff;
+  --yellow-bg: #fff8e5;
+  --radius: 8px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
 html { -webkit-text-size-adjust: 100%; }
 
 body {
-  font-family: "Segoe UI", "Arial Hebrew", Arial, sans-serif;
+  font-family: "Segoe UI", Arial, "Arial Hebrew", sans-serif;
   background: var(--bg);
   color: var(--text);
-  font-size: 16px;
-  line-height: 1.5;
+  font-size: 15px;
+  line-height: 1.45;
   min-height: 100vh;
 }
+a { color: var(--cta); }
 
-/* ===== כותרת עליונה ===== */
+/* ===== פס עליון ===== */
 .topbar {
-  background: var(--navy);
+  background: var(--blue);
   color: #fff;
-  padding: 14px 16px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
 }
-.logo { font-size: 1.35rem; font-weight: 700; letter-spacing: 0.5px; }
-.logo .blue { color: var(--blue); }
-.logo .gold { color: var(--gold); }
-.topbar .sub { font-size: 0.8rem; color: #b9bed3; }
-.topbar .user-info { text-align: left; font-size: 0.85rem; color: #d5d9ea; }
+.logo { font-size: 1.3rem; font-weight: 800; letter-spacing: .3px; }
+.logo .blue { color: #fff; }
+.logo .gold { color: var(--yellow); }
+.topbar .sub { font-size: .78rem; color: #c3d3ec; margin-top: 1px; }
+.topbar .user-info { text-align: left; font-size: .82rem; color: #e2e9f5; }
 .topbar button.link {
-  background: none; border: none; color: var(--blue);
-  font-size: 0.85rem; cursor: pointer; padding: 0;
+  background: none; border: none; color: #fff; text-decoration: underline;
+  font-size: .82rem; cursor: pointer; padding: 0; font-family: inherit;
 }
 
-.app { max-width: 540px; margin: 0 auto; padding: 16px 14px 48px; }
-.app.wide { max-width: 1100px; }
+/* פס סיכום החיפוש — מסגרת צהובה, כמו בבוקינג */
+.searchbar { background: var(--blue); padding: 0 10px 12px; }
+.searchbox {
+  background: #fff; border: 2px solid var(--yellow); border-radius: var(--radius);
+  padding: 8px 12px; display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.18);
+}
+.searchbox .sb-icon {
+  width: 34px; height: 34px; border-radius: 6px; background: var(--blue-bg);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.searchbox .sb-text { flex: 1; min-width: 0; }
+.searchbox .sb-title { font-weight: 700; font-size: .95rem; }
+.searchbox .sb-sub {
+  font-size: .8rem; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.searchbox .sb-arrow { color: var(--muted); flex-shrink: 0; }
 
-/* ===== כרטיסים ===== */
+/* שורת מיון דביקה */
+.toolbar {
+  position: sticky; top: 0; z-index: 20;
+  background: #fff; border-bottom: 1px solid var(--line);
+  display: flex; overflow-x: auto;
+}
+.toolbar button {
+  flex: 1; min-width: max-content;
+  background: none; border: none; border-inline-end: 1px solid var(--line);
+  padding: 11px 14px; font-family: inherit; font-size: .9rem; font-weight: 600;
+  color: var(--text); cursor: pointer; display: flex; align-items: center;
+  justify-content: center; gap: 6px; white-space: nowrap;
+}
+.toolbar button:last-child { border-inline-end: none; }
+.toolbar button.on { color: var(--cta); box-shadow: inset 0 -3px 0 var(--cta); }
+
+.app { max-width: 560px; margin: 0 auto; padding: 14px 12px 40px; }
+.app.wide { max-width: 1140px; }
+
+/* ===== כרטיס כללי (טפסים, מידע) ===== */
 .card {
-  background: var(--card);
-  border-radius: var(--radius);
-  padding: 18px 16px;
-  margin-bottom: 14px;
-  box-shadow: 0 1px 4px rgba(21, 26, 53, 0.08);
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 12px;
 }
-.card h2 { font-size: 1.15rem; margin-bottom: 12px; }
+.card h2 { font-size: 1.2rem; margin-bottom: 10px; }
 .card h3 { font-size: 1rem; margin-bottom: 8px; }
-.card p.hint { color: var(--muted); font-size: 0.9rem; margin-bottom: 12px; }
+.card p.hint { color: var(--muted); font-size: .87rem; margin-bottom: 12px; }
 
 .section-title {
-  font-size: 1.05rem; font-weight: 700; margin: 22px 0 10px;
+  font-size: 1.1rem; font-weight: 800; margin: 18px 0 10px;
   display: flex; align-items: center; gap: 8px;
 }
 .section-title .count {
-  background: var(--navy); color: #fff; border-radius: 999px;
-  font-size: 0.75rem; padding: 1px 9px;
+  background: var(--blue); color: #fff; border-radius: 999px;
+  font-size: .72rem; padding: 2px 9px; font-weight: 700;
 }
+
+/* ===== כרטיס רכב בסגנון בוקינג ===== */
+.rcard {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); margin-bottom: 12px; overflow: hidden;
+}
+.rcard.is-chosen { border: 2px solid var(--green); }
+.rcard-ribbon {
+  background: var(--green); color: #fff; font-weight: 700;
+  font-size: .85rem; padding: 7px 14px;
+}
+.rcard-ribbon.gold { background: var(--yellow); color: var(--text); }
+.rcard-ribbon.grey { background: #6b6b6b; }
+.rcard-body { padding: 14px; }
+.rcard-title { font-size: 1.15rem; font-weight: 800; line-height: 1.3; }
+.rcard-title .similar { font-size: .82rem; font-weight: 400; color: var(--muted); }
+
+.rcard-main { display: flex; gap: 12px; align-items: flex-start; margin-top: 10px; }
+.rcard-specs { flex: 1; min-width: 0; }
+.rcard-photo {
+  width: 44%; max-width: 190px; aspect-ratio: 4 / 3; object-fit: contain;
+  background: #fff; flex-shrink: 0;
+}
+
+/* שורות מפרט עם אייקונים */
+.spec { display: flex; align-items: center; gap: 8px; font-size: .88rem; margin-bottom: 5px; }
+.spec svg { width: 17px; height: 17px; stroke: var(--muted); fill: none; stroke-width: 1.7; flex-shrink: 0; }
+.spec.note { color: var(--muted); }
+
+.rcard-foot {
+  border-top: 1px solid var(--line); padding: 12px 14px;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 10px;
+}
+.rcard-place { font-size: .88rem; min-width: 0; }
+.rcard-place strong { display: block; font-weight: 700; }
+.rcard-place span { color: var(--muted); font-size: .8rem; }
+.rcard-price { text-align: left; flex-shrink: 0; }
+.rcard-price .label { font-size: .75rem; color: var(--muted); display: block; }
+.rcard-price .amount { font-size: 1.45rem; font-weight: 800; line-height: 1.2; }
+.rcard-price .per { font-size: .75rem; color: var(--muted); display: block; }
+.rcard-actions { padding: 0 14px 14px; }
 
 /* ===== טפסים ===== */
-.field { margin-bottom: 14px; }
-.field label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 5px; }
+.field { margin-bottom: 13px; }
+.field label { display: block; font-size: .87rem; font-weight: 700; margin-bottom: 5px; }
 .field input, .field select, .field textarea {
-  width: 100%;
-  padding: 11px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  font-size: 1rem;
-  font-family: inherit;
-  background: #fff;
-  color: var(--text);
+  width: 100%; padding: 10px 12px;
+  border: 1px solid #bdbdbd; border-radius: 4px;
+  font-size: 1rem; font-family: inherit; background: #fff; color: var(--text);
 }
 .field input:focus, .field select:focus, .field textarea:focus {
-  outline: 2px solid var(--blue);
-  border-color: var(--blue);
+  outline: none; border-color: var(--cta); box-shadow: 0 0 0 2px rgba(0,113,194,.25);
 }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
 .check {
   display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
-  margin-bottom: 8px; cursor: pointer; font-size: 0.95rem;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px;
+  margin-bottom: 8px; cursor: pointer; font-size: .92rem;
 }
-.check input { width: 20px; height: 20px; accent-color: var(--gold); flex-shrink: 0; }
+.check input { width: 18px; height: 18px; accent-color: var(--cta); flex-shrink: 0; }
+input[type="file"] { padding: 8px 0; font-size: .88rem; border: none; }
 
 /* ===== כפתורים ===== */
 .btn {
-  display: block; width: 100%;
-  background: var(--gold); color: var(--navy);
-  border: none; border-radius: 10px;
-  padding: 13px; font-size: 1.05rem; font-weight: 700;
+  display: block; width: 100%; text-align: center; text-decoration: none;
+  background: var(--cta); color: #fff; border: 1px solid var(--cta);
+  border-radius: 4px; padding: 11px 14px; font-size: 1rem; font-weight: 700;
   cursor: pointer; font-family: inherit;
 }
-.btn:hover { background: var(--gold-dark); }
-.btn:disabled { opacity: 0.6; cursor: default; }
-.btn.secondary { background: var(--navy); color: #fff; }
-.btn.small { width: auto; display: inline-block; padding: 8px 16px; font-size: 0.9rem; }
-.btn.outline {
-  background: none; border: 1.5px solid var(--navy); color: var(--navy);
-}
-.btn.danger-outline { background: none; border: 1.5px solid var(--red); color: var(--red); }
+.btn:hover { background: var(--cta-hover); border-color: var(--cta-hover); }
+.btn:disabled { opacity: .55; cursor: default; }
+.btn.secondary { background: var(--blue); border-color: var(--blue); }
+.btn.outline { background: #fff; color: var(--cta); border-color: var(--cta); }
+.btn.outline:hover { background: var(--blue-bg); }
+.btn.danger-outline { background: #fff; color: var(--red); border-color: var(--red); }
+.btn.danger-outline:hover { background: var(--red-bg); }
+.btn.small { width: auto; display: inline-block; padding: 8px 16px; font-size: .9rem; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 
 /* ===== תגיות וסטטוסים ===== */
 .badge {
-  display: inline-block; border-radius: 999px;
-  font-size: 0.78rem; font-weight: 700; padding: 3px 11px;
+  display: inline-block; border-radius: 4px;
+  font-size: .76rem; font-weight: 700; padding: 3px 8px;
 }
-.badge.waiting { background: #e3f0ff; color: #1a6dc0; }
-.badge.chosen { background: #fdf3d7; color: #8a6a14; }
-.badge.closed { background: #e2f5e9; color: var(--green); }
-.badge.lost { background: #fdeaea; color: var(--red); }
-.badge.blocked { background: #fdeaea; color: var(--red); }
-.badge.active { background: #e2f5e9; color: var(--green); }
+.badge.waiting { background: var(--blue-bg); color: var(--blue); }
+.badge.chosen { background: var(--yellow-bg); color: #7a5c00; }
+.badge.closed, .badge.active { background: var(--green-bg); color: var(--green); }
+.badge.lost, .badge.blocked { background: var(--red-bg); color: var(--red); }
 
 .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-.tag {
-  background: #eef0f7; color: var(--muted);
-  border-radius: 6px; font-size: 0.75rem; padding: 2px 8px;
-}
-.tag.urgent { background: #fdeaea; color: var(--red); font-weight: 700; }
+.tag { background: #f0f0f0; color: var(--muted); border-radius: 4px; font-size: .75rem; padding: 2px 8px; }
+.tag.urgent { background: var(--red-bg); color: var(--red); font-weight: 700; }
 
-/* ===== פרטי בקשה ===== */
-.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; font-size: 0.92rem; }
+/* ===== פרטים ===== */
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; font-size: .9rem; }
 .kv dt { color: var(--muted); }
 .kv dd { font-weight: 600; }
-
 .req-head { display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px; gap: 8px; }
-.req-id { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
-
-/* ===== הצעת מחיר ללקוח ===== */
-.offer-card {
-  border: 1.5px solid var(--line); border-radius: var(--radius);
-  padding: 14px; margin-bottom: 10px; background: #fff;
-}
-.offer-card.chosen { border-color: var(--gold); background: #fffdf5; }
-.offer-price { font-size: 1.5rem; font-weight: 800; color: var(--navy); }
-.offer-price small { font-size: 0.85rem; color: var(--muted); font-weight: 400; }
-.car-model { font-size: 1.05rem; font-weight: 700; margin-top: 4px; }
-.car-model .similar { font-size: 0.78rem; color: var(--muted); font-weight: 400; }
-.car-photo {
-  display: block; width: 100%; max-height: 230px; object-fit: cover;
-  border-radius: 10px; margin: 8px 0; background: #eef0f7;
-}
-.car-preview:empty { display: none; }
-
-/* ===== צי הרכבים של הספק ===== */
-.fleet-card { display: flex; align-items: center; gap: 12px; }
-.fleet-thumb {
-  width: 96px; height: 72px; object-fit: cover; border-radius: 8px;
-  background: #eef0f7; flex-shrink: 0;
-}
-.fleet-thumb.no-photo { display: flex; align-items: center; justify-content: center; font-size: 1.8rem; }
-input[type="file"] { padding: 8px 0; font-size: 0.9rem; }
-
-/* ===== שורת הזמנה באזור האישי ===== */
-.order-row {
-  display: flex; justify-content: space-between; align-items: center; gap: 10px;
-  padding: 12px 10px; border-bottom: 1px solid var(--line); cursor: pointer;
-}
-.order-row:last-child { border-bottom: none; }
-.order-row:hover { background: #f7f8fc; }
-.order-sub { color: var(--muted); font-size: 0.82rem; }
+.req-id { font-size: .8rem; color: var(--muted); font-weight: 600; }
 
 /* ===== הודעות ===== */
-.msg { border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; font-size: 0.95rem; }
-.msg.error { background: #fdeaea; color: var(--red); }
-.msg.success { background: #e2f5e9; color: var(--green); }
-.msg.info { background: #e3f0ff; color: #1a6dc0; }
+.msg { border-radius: 4px; padding: 11px 13px; margin-bottom: 12px; font-size: .92rem; }
+.msg.error { background: var(--red-bg); color: var(--red); border-inline-start: 4px solid var(--red); }
+.msg.success { background: var(--green-bg); color: var(--green); border-inline-start: 4px solid var(--green); }
+.msg.info { background: var(--blue-bg); color: var(--blue); border-inline-start: 4px solid var(--cta); }
 
-.big-check { text-align: center; padding: 10px 0 4px; }
+.big-check { text-align: center; }
 .big-check .icon {
-  width: 62px; height: 62px; border-radius: 50%;
-  background: var(--green); color: #fff; font-size: 2rem;
-  display: inline-flex; align-items: center; justify-content: center;
-  margin-bottom: 10px;
+  width: 58px; height: 58px; border-radius: 50%;
+  background: var(--green); color: #fff; font-size: 1.9rem;
+  display: inline-flex; align-items: center; justify-content: center; margin-bottom: 10px;
 }
-
-.copy-box {
-  display: flex; gap: 8px; margin-top: 10px;
-}
+.copy-box { display: flex; gap: 8px; margin-top: 10px; }
 .copy-box input {
-  flex: 1; padding: 10px; border: 1px solid var(--line); border-radius: 10px;
-  font-size: 0.85rem; direction: ltr; text-align: left; color: var(--muted);
+  flex: 1; padding: 10px; border: 1px solid #bdbdbd; border-radius: 4px;
+  font-size: .82rem; direction: ltr; text-align: left; color: var(--muted);
 }
 
-/* ===== טאבים (אדמין) ===== */
-.tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+/* ===== טאבים ===== */
+.tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
 .tabs button {
-  border: none; background: #fff; color: var(--text);
-  border-radius: 999px; padding: 8px 18px; font-size: 0.95rem;
-  cursor: pointer; font-family: inherit; font-weight: 600;
-  border: 1.5px solid var(--line);
+  border: 1px solid var(--line); background: #fff; color: var(--text);
+  border-radius: 999px; padding: 7px 15px; font-size: .9rem;
+  cursor: pointer; font-family: inherit; font-weight: 700;
 }
-.tabs button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+.tabs button.on { background: var(--blue); color: #fff; border-color: var(--blue); }
 .tabs button .tab-count {
-  display: inline-block; min-width: 20px; text-align: center;
-  background: rgba(0,0,0,0.12); border-radius: 999px;
-  font-size: 0.75rem; padding: 1px 6px; margin-inline-start: 4px;
+  display: inline-block; min-width: 19px; text-align: center;
+  background: rgba(0,0,0,.1); border-radius: 999px;
+  font-size: .74rem; padding: 1px 6px; margin-inline-start: 4px;
 }
-.tabs button.on .tab-count { background: rgba(255,255,255,0.25); }
-/* טאב "אושרו" עם הצעות ממתינות — מודגש בזהב */
+.tabs button.on .tab-count { background: rgba(255,255,255,.25); }
 .tabs button.attention {
-  background: var(--gold); color: var(--navy); border-color: var(--gold);
+  background: var(--yellow); color: var(--text); border-color: var(--yellow);
   animation: pulse-gold 1.6s ease-in-out infinite;
 }
-.tabs button.attention.on { background: var(--gold-dark); border-color: var(--gold-dark); color: #fff; animation: none; }
+.tabs button.attention.on { animation: none; background: #e0a800; border-color: #e0a800; }
 @keyframes pulse-gold {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 169, 68, 0.55); }
-  50% { box-shadow: 0 0 0 7px rgba(212, 169, 68, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(254,187,2,.6); }
+  50% { box-shadow: 0 0 0 7px rgba(254,187,2,0); }
 }
 
-/* תיבת טלפון הלקוח — לספק שנבחר בלבד */
+/* ===== טלפון הלקוח (לספק הזוכה) ===== */
 .phone-box {
-  background: #e3f0ff; border-radius: 10px; padding: 12px;
-  font-weight: 700; margin: 10px 0; font-size: 1.02rem;
+  background: var(--blue-bg); border-radius: 4px; padding: 12px;
+  font-weight: 700; margin: 10px 0; font-size: 1rem;
 }
-.phone-box a { color: var(--navy); direction: ltr; unicode-bidi: embed; }
+.phone-box a { color: var(--blue); direction: ltr; unicode-bidi: embed; }
 
-/* כרטיס הצעה שאושרה */
-.won-card { border: 2px solid var(--gold); }
-.won-banner {
-  background: var(--gold); color: var(--navy);
-  font-weight: 800; font-size: 1.05rem; text-align: center;
-  border-radius: 10px; padding: 10px; margin-bottom: 12px;
+/* ===== שורות רשימה (הזמנות שלי, צי, קרדיטים) ===== */
+.order-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 12px 4px; border-bottom: 1px solid var(--line); cursor: pointer;
 }
+.order-row:last-child { border-bottom: none; }
+.order-row:hover { background: #fafafa; }
+.order-sub { color: var(--muted); font-size: .8rem; }
 
-/* ===== טבלאות (אדמין) ===== */
-.table-wrap { overflow-x: auto; background: #fff; border-radius: var(--radius); box-shadow: 0 1px 4px rgba(21,26,53,0.08); }
-table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 0.88rem; }
+.fleet-card { display: flex; align-items: center; gap: 12px; }
+.fleet-thumb { width: 92px; height: 69px; object-fit: contain; background: #fff; flex-shrink: 0; }
+.fleet-thumb.no-photo { display: flex; align-items: center; justify-content: center; font-size: 1.7rem; background: #f0f0f0; border-radius: 4px; }
+
+.car-photo { display: block; width: 100%; max-height: 190px; object-fit: contain; margin: 8px 0; }
+.car-preview:empty { display: none; }
+
+/* ===== טבלאות (ניהול) ===== */
+.table-wrap { overflow-x: auto; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: .86rem; }
 th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
-th { background: #f7f8fc; color: var(--muted); font-size: 0.8rem; position: sticky; top: 0; }
+th { background: #fafafa; color: var(--muted); font-size: .78rem; position: sticky; top: 0; }
 tr:last-child td { border-bottom: none; }
-td select { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); font-family: inherit; }
+td select { padding: 6px 8px; border-radius: 4px; border: 1px solid #bdbdbd; font-family: inherit; }
 
-.empty { text-align: center; color: var(--muted); padding: 28px 10px; font-size: 0.95rem; }
-
+.empty { text-align: center; color: var(--muted); padding: 26px 10px; font-size: .92rem; }
 .hidden { display: none !important; }
+footer.credit { text-align: center; color: var(--muted); font-size: .76rem; margin-top: 26px; }
 
-footer.credit { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 30px; }
+@media (min-width: 480px) {
+  .rcard-photo { max-width: 220px; }
+}

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>רכב בקליק — בקשת רכב להשכרה</title>
-  <meta name="theme-color" content="#151a35">
+  <meta name="theme-color" content="#003b95">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/app.css">
@@ -16,6 +16,7 @@
       <div class="sub">רכב להשכרה בקליק אחד — בלי טלפונים, בלי התרוצצויות</div>
     </div>
   </header>
+  <div id="search-summary"></div>
 
   <main class="app">
     <div id="msg"></div>
@@ -100,10 +101,10 @@
           <span id="track-status"></span>
         </div>
         <div class="req-id" id="track-id"></div>
-        <dl class="kv" id="track-details" style="margin-top:10px"></dl>
       </div>
 
       <div class="section-title">הצעות מחיר <span class="count" id="offers-count">0</span></div>
+      <div id="offers-toolbar"></div>
       <div id="offers-list"></div>
 
       <div class="btn-row" style="margin-top:18px">
@@ -115,6 +116,7 @@
     <footer class="credit">רכב בקליק · כל הפעולות מתבצעות דרך המערכת · <a href="/credits.html">קרדיט תמונות</a></footer>
   </main>
 
+  <script src="/carcard.js"></script>
   <script src="/customer.js"></script>
 </body>
 </html>
