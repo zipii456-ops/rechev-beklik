@@ -36,25 +36,6 @@
   const priceText = (o) => `₪${o.price} ${o.priceUnit || ''}`;
   const carLine = (o) => o.carModel ? `${esc(o.carModel)} · ` : '';
 
-  // הקטנת תמונה בדפדפן לפני שליחה — עד 900 פיקסלים, JPEG
-  function resizeImage(file, max = 900, quality = 0.72) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.onload = () => {
-        const scale = Math.min(1, max / Math.max(img.width, img.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('לא ניתן לקרוא את התמונה')); };
-      img.src = url;
-    });
-  }
-
   function showView(name) {
     $('view-login').classList.toggle('hidden', name !== 'login');
     $('view-board').classList.toggle('hidden', name !== 'board');
@@ -263,7 +244,7 @@
     return `
       <div class="card">
         <h3>הוספת רכב לצי</h3>
-        <p class="hint">הרכבים שתוסיפו כאן יופיעו לבחירה בכל הצעה, והלקוח יראה את הדגם והתמונה.</p>
+        <p class="hint">הרכבים שתוסיפו כאן יופיעו לבחירה בכל הצעה. התמונה נבחרת אוטומטית לפי הדגם.</p>
         <form id="add-car-form">
           <div class="row2">
             <div class="field">
@@ -272,15 +253,11 @@
             </div>
             <div class="field">
               <label>דגם *</label>
-              <input type="text" name="model" list="all-models" placeholder="למשל: טויוטה קורולה 2024" required>
+              <input type="text" name="model" list="all-models" placeholder="למשל: טויוטה קורולה 2024" required autocomplete="off">
               <datalist id="all-models">${allModels.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
             </div>
           </div>
-          <div class="field">
-            <label>תמונת הרכב</label>
-            <input type="file" name="photo" accept="image/*">
-            <div class="car-preview" id="add-car-preview"></div>
-          </div>
+          <div class="car-preview" id="add-car-preview"></div>
           <button class="btn small" type="submit" id="add-car-btn">הוסף רכב</button>
         </form>
       </div>
@@ -353,17 +330,22 @@
     // ---- צי הרכבים ----
     const addForm = $('add-car-form');
     if (addForm) {
-      let photoData = null;
-      addForm.elements.photo.onchange = async () => {
-        const file = addForm.elements.photo.files[0];
-        photoData = null;
-        $('add-car-preview').innerHTML = '';
-        if (!file) return;
-        try {
-          photoData = await resizeImage(file);
-          $('add-car-preview').innerHTML = `<img class="car-photo" src="${photoData}" alt="">`;
-        } catch (err) { showMsg(err.message, 'error'); }
+      // תצוגה מקדימה של התמונה שתיבחר אוטומטית לדגם שמוקלד
+      let previewTimer = null;
+      const updatePreview = () => {
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(async () => {
+          const model = addForm.elements.model.value.trim();
+          if (!model) { $('add-car-preview').innerHTML = ''; return; }
+          try {
+            const { url } = await api(`/api/car-image?model=${encodeURIComponent(model)}&type=${encodeURIComponent(addForm.elements.carType.value)}`);
+            $('add-car-preview').innerHTML = `<img class="car-photo" src="${url}" alt=""><div class="order-sub">התמונה שתוצג ללקוח</div>`;
+          } catch (e) {}
+        }, 300);
       };
+      addForm.elements.model.oninput = updatePreview;
+      addForm.elements.carType.onchange = updatePreview;
+
       addForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = $('add-car-btn');
@@ -372,7 +354,6 @@
           await api('/api/supplier/cars', { body: {
             model: addForm.elements.model.value,
             carType: addForm.elements.carType.value,
-            photo: photoData,
           }});
           showMsg('הרכב נוסף לצי שלך', 'success');
           load(true);

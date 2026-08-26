@@ -197,7 +197,7 @@
           <div class="offer-price">₪${o.price} <small>${o.priceUnit || ''}</small></div>
           ${o.chosen ? '<span class="badge chosen">ההצעה שנבחרה</span>' : ''}
         </div>
-        ${o.carModel ? `<div class="car-model">🚗 ${o.carModel}</div>` : ''}
+        ${o.carModel ? `<div class="car-model">🚗 ${o.carModel} <small class="similar">או רכב דומה</small></div>` : ''}
         ${o.carPhoto ? `<img class="car-photo" src="${o.carPhoto}" alt="${o.carModel || ''}">` : ''}
         <div class="kv" style="margin-top:6px">
           <dt>סוג רכב</dt><dd>${o.carType}</dd>

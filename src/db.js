@@ -7,13 +7,55 @@ const crypto = require('crypto');
 const REGIONS = ['ירושלים', 'אשדוד', 'בני ברק', 'יהוד'];
 const CAR_TYPES = ['קטן', 'משפחתי', '7 מקומות', 'מסחרי'];
 const PRICE_UNITS = ['ליום', 'לשעה', 'לעסקה'];
-// דגמים נפוצים בצי ההשכרה בישראל, לפי סוג רכב — לרשימה הנפתחת אצל הספק (אפשר גם טקסט חופשי)
-const CAR_MODELS = {
-  'קטן': ['קיה פיקנטו', 'יונדאי i10', 'יונדאי i20', 'טויוטה יאריס', 'סוזוקי סוויפט', 'מאזדה 2', 'סקודה פאביה', 'קיה סטוניק', 'יונדאי ונו'],
-  'משפחתי': ['טויוטה קורולה', 'מאזדה 3', 'סקודה אוקטביה', 'יונדאי אלנטרה', 'קיה ספורטז\'', 'יונדאי טוסון', 'טויוטה RAV4', 'פיג\'ו 3008', 'קיה נירו'],
-  '7 מקומות': ['קיה סורנטו', 'יונדאי סנטה פה', 'קיה קרניבל', 'סקודה קודיאק', 'טויוטה היילנדר', 'סיטרואן ספייסטורר'],
-  'מסחרי': ['פורד טרנזיט', 'רנו קנגו', 'סיטרואן ברלינגו', 'פיג\'ו פרטנר', 'פיאט דוקאטו', 'טויוטה פרואייס'],
-};
+// קטלוג דגמים נפוצים בצי ההשכרה בישראל — לכל דגם תמונה קבועה ב-public/cars/<slug>.jpg
+// (תמונות ברישיון חופשי מוויקימדיה קומונס; הקרדיטים ב-public/cars/credits.json)
+const CAR_CATALOG = [
+  { name: 'קיה פיקנטו', type: 'קטן', slug: 'kia-picanto', aliases: ['picanto'] },
+  { name: 'יונדאי i10', type: 'קטן', slug: 'hyundai-i10', aliases: ['i10'] },
+  { name: 'יונדאי i20', type: 'קטן', slug: 'hyundai-i20', aliases: ['i20'] },
+  { name: 'טויוטה יאריס', type: 'קטן', slug: 'toyota-yaris', aliases: ['yaris', 'יאריס'] },
+  { name: 'סוזוקי סוויפט', type: 'קטן', slug: 'suzuki-swift', aliases: ['swift', 'סוויפט'] },
+  { name: 'מאזדה 2', type: 'קטן', slug: 'mazda-2', aliases: ['mazda 2', 'mazda2'] },
+  { name: 'סקודה פאביה', type: 'קטן', slug: 'skoda-fabia', aliases: ['fabia', 'פאביה'] },
+  { name: 'קיה סטוניק', type: 'קטן', slug: 'kia-stonic', aliases: ['stonic', 'סטוניק'] },
+  { name: 'יונדאי ונו', type: 'קטן', slug: 'hyundai-venue', aliases: ['venue'] },
+  { name: 'טויוטה קורולה', type: 'משפחתי', slug: 'toyota-corolla', aliases: ['corolla', 'קורולה'] },
+  { name: 'מאזדה 3', type: 'משפחתי', slug: 'mazda-3', aliases: ['mazda 3', 'mazda3'] },
+  { name: 'סקודה אוקטביה', type: 'משפחתי', slug: 'skoda-octavia', aliases: ['octavia', 'אוקטביה'] },
+  { name: 'יונדאי אלנטרה', type: 'משפחתי', slug: 'hyundai-elantra', aliases: ['elantra', 'אלנטרה'] },
+  { name: 'קיה ספורטז\'', type: 'משפחתי', slug: 'kia-sportage', aliases: ['sportage', 'ספורטז'] },
+  { name: 'יונדאי טוסון', type: 'משפחתי', slug: 'hyundai-tucson', aliases: ['tucson', 'טוסון'] },
+  { name: 'טויוטה RAV4', type: 'משפחתי', slug: 'toyota-rav4', aliases: ['rav4', 'rav 4'] },
+  { name: 'פיג\'ו 3008', type: 'משפחתי', slug: 'peugeot-3008', aliases: ['3008'] },
+  { name: 'קיה נירו', type: 'משפחתי', slug: 'kia-niro', aliases: ['niro', 'נירו'] },
+  { name: 'קיה סורנטו', type: '7 מקומות', slug: 'kia-sorento', aliases: ['sorento', 'סורנטו'] },
+  { name: 'יונדאי סנטה פה', type: '7 מקומות', slug: 'hyundai-santa-fe', aliases: ['santa fe', 'סנטה פה'] },
+  { name: 'קיה קרניבל', type: '7 מקומות', slug: 'kia-carnival', aliases: ['carnival', 'קרניבל'] },
+  { name: 'סקודה קודיאק', type: '7 מקומות', slug: 'skoda-kodiaq', aliases: ['kodiaq', 'קודיאק'] },
+  { name: 'טויוטה היילנדר', type: '7 מקומות', slug: 'toyota-highlander', aliases: ['highlander', 'היילנדר'] },
+  { name: 'סיטרואן ספייסטורר', type: '7 מקומות', slug: 'citroen-spacetourer', aliases: ['spacetourer', 'ספייסטורר'] },
+  { name: 'פורד טרנזיט', type: 'מסחרי', slug: 'ford-transit', aliases: ['transit', 'טרנזיט'] },
+  { name: 'רנו קנגו', type: 'מסחרי', slug: 'renault-kangoo', aliases: ['kangoo', 'קנגו'] },
+  { name: 'סיטרואן ברלינגו', type: 'מסחרי', slug: 'citroen-berlingo', aliases: ['berlingo', 'ברלינגו'] },
+  { name: 'פיג\'ו פרטנר', type: 'מסחרי', slug: 'peugeot-partner', aliases: ['partner', 'פרטנר'] },
+  { name: 'פיאט דוקאטו', type: 'מסחרי', slug: 'fiat-ducato', aliases: ['ducato', 'דוקאטו'] },
+  { name: 'טויוטה פרואייס', type: 'מסחרי', slug: 'toyota-proace', aliases: ['proace', 'פרואייס'] },
+];
+// שמות הדגמים לפי סוג — לרשימה הנפתחת אצל הספק
+const CAR_MODELS = {};
+for (const c of CAR_CATALOG) (CAR_MODELS[c.type] = CAR_MODELS[c.type] || []).push(c.name);
+// תמונת ברירת מחדל לכל סוג, כשהדגם שנכתב לא מזוהה
+const TYPE_FALLBACK_SLUG = { 'קטן': 'kia-picanto', 'משפחתי': 'toyota-corolla', '7 מקומות': 'kia-sorento', 'מסחרי': 'ford-transit' };
+
+// מזהה דגם מטקסט חופשי (למשל "טויוטה קורולה 2024 אוטומט") ומחזיר את כתובת התמונה
+function resolveCarImage(modelText, carType) {
+  const t = String(modelText || '').toLowerCase().replace(/['"׳״]/g, '');
+  const hit = CAR_CATALOG.find(c =>
+    t.includes(c.name.toLowerCase().replace(/['"׳״]/g, '')) || c.aliases.some(a => t.includes(a.toLowerCase()))
+  );
+  const slug = hit ? hit.slug : (TYPE_FALLBACK_SLUG[carType] || 'toyota-corolla');
+  return '/cars/' + slug + '.jpg';
+}
 // 'חדש' מוצג ללקוח כ"ממתין להצעות"
 const REQUEST_STATUSES = ['חדש', 'נבחרה הצעה', 'נסגר', 'לא נסגר'];
 const FINAL_STATUSES = ['נסגר', 'לא נסגר'];
@@ -199,6 +241,7 @@ function seedIfEmpty() {
 }
 
 module.exports = {
-  db, REGIONS, CAR_TYPES, CAR_MODELS, PRICE_UNITS, REQUEST_STATUSES, FINAL_STATUSES,
+  db, REGIONS, CAR_TYPES, CAR_MODELS, CAR_CATALOG, PRICE_UNITS, REQUEST_STATUSES, FINAL_STATUSES,
+  resolveCarImage,
   hashPassword, verifyPassword, newToken, publicIdFor, seedIfEmpty,
 };

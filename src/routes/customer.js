@@ -1,11 +1,16 @@
 // API לקוח — ללא הרשמה: יצירת בקשה, מעקב לפי טוקן, בחירת הצעה
 const express = require('express');
-const { db, REGIONS, CAR_TYPES, CAR_MODELS, PRICE_UNITS, newToken, publicIdFor } = require('../db');
+const { db, REGIONS, CAR_TYPES, CAR_MODELS, CAR_CATALOG, PRICE_UNITS, newToken, publicIdFor, resolveCarImage } = require('../db');
 
 const router = express.Router();
 
 router.get('/meta', (req, res) => {
-  res.json({ regions: REGIONS, carTypes: CAR_TYPES, carModels: CAR_MODELS, priceUnits: PRICE_UNITS });
+  res.json({ regions: REGIONS, carTypes: CAR_TYPES, carModels: CAR_MODELS, carCatalog: CAR_CATALOG, priceUnits: PRICE_UNITS });
+});
+
+// תצוגה מקדימה: איזו תמונה תתאים לדגם שהספק מקליד
+router.get('/car-image', (req, res) => {
+  res.json({ url: resolveCarImage(req.query.model, req.query.type) });
 });
 
 router.post('/requests', (req, res) => {

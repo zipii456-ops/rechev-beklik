@@ -1,6 +1,6 @@
 // API ספק — בקשות מהאזור שלו בלבד, צי רכבים, הצעות, וסטטוס סופי
 const express = require('express');
-const { db, CAR_TYPES, FINAL_STATUSES, PRICE_UNITS, verifyPassword } = require('../db');
+const { db, CAR_TYPES, FINAL_STATUSES, PRICE_UNITS, verifyPassword, resolveCarImage } = require('../db');
 const { createSession, destroySession, requireAuth } = require('../auth');
 
 const router = express.Router();
@@ -37,15 +37,12 @@ router.post('/cars', requireAuth('supplier'), (req, res) => {
   if (!model) return res.status(400).json({ error: 'נא לציין דגם רכב' });
   if (!CAR_TYPES.includes(b.carType)) return res.status(400).json({ error: 'נא לבחור סוג רכב' });
 
-  let photo = b.photo ? String(b.photo) : null;
-  if (photo) {
-    if (!/^data:image\/(jpeg|png|webp);base64,/.test(photo)) return res.status(400).json({ error: 'קובץ תמונה לא תקין' });
-    if (photo.length > 700000) return res.status(400).json({ error: 'התמונה גדולה מדי' });
-  }
+  // התמונה נקבעת אוטומטית לפי הדגם (כמו ב-Booking), מהקטלוג
+  const photo = resolveCarImage(model, b.carType);
 
   const info = db.prepare('INSERT INTO supplier_cars (supplier_id, model, car_type, photo) VALUES (?,?,?,?)')
     .run(req.supplier.id, model, b.carType, photo);
-  res.json({ ok: true, id: Number(info.lastInsertRowid) });
+  res.json({ ok: true, id: Number(info.lastInsertRowid), photo });
 });
 
 // הסרה רכה — הצעות ישנות שמקושרות לרכב שומרות את התמונה
