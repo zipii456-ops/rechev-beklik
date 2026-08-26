@@ -8,6 +8,8 @@
   }
 
   async function enter(role, id, label) {
+    // פותחים את החלון מיד (בתוך אירוע הלחיצה) כדי שחוסם החלונות הקופצים לא יעצור אותנו
+    const win = window.open('', '_blank');
     try {
       const res = await fetch('/api/demo/login', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -15,10 +17,16 @@
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'שגיאה');
-      localStorage.setItem(role === 'admin' ? 'rb_admin_token' : 'rb_supplier_token', data.token);
-      showMsg(`נכנסים כ${label}...`, 'success');
-      location.href = role === 'admin' ? '/admin' : '/supplier';
+      // הטוקן עובר בכתובת; כל טאב שומר אותו לעצמו — כך אפשר כמה משתמשים במקביל
+      const url = (role === 'admin' ? '/admin' : '/supplier') + '#token=' + data.token;
+      if (win) {
+        win.location = url;
+        showMsg(`נפתח טאב חדש: ${label}`, 'success');
+      } else {
+        location.href = url; // חוסם חלונות קופצים — נכנסים באותו עמוד
+      }
     } catch (err) {
+      if (win) win.close();
       showMsg(err.message, 'error');
     }
   }

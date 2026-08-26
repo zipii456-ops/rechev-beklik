@@ -2,6 +2,20 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const TOKEN_KEY = 'rb_admin_token';
+
+  // טוקן: נשמר גם לטאב הנוכחי בלבד (sessionStorage) — כך אפשר להיות מחוברים
+  // לכמה משתמשים במקביל בטאבים שונים; localStorage שומר לכניסה הבאה.
+  (function readTokenFromUrl() {
+    const m = location.hash.match(/token=([0-9a-f]+)/);
+    if (m) {
+      sessionStorage.setItem(TOKEN_KEY, m[1]);
+      history.replaceState(null, '', location.pathname);
+    }
+  })();
+  const getToken = () => sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
+  const setToken = (t) => { sessionStorage.setItem(TOKEN_KEY, t); localStorage.setItem(TOKEN_KEY, t); };
+  const clearToken = () => { sessionStorage.removeItem(TOKEN_KEY); localStorage.removeItem(TOKEN_KEY); };
+
   let overview = null;
 
   function showMsg(text, kind) {
@@ -10,7 +24,7 @@
 
   async function api(path, options = {}) {
     const headers = { 'Content-Type': 'application/json' };
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = getToken();
     if (token) headers['Authorization'] = 'Bearer ' + token;
     const res = await fetch(path, {
       method: options.method || (options.body ? 'POST' : 'GET'),
@@ -38,7 +52,7 @@
   }
 
   function logoutLocal() {
-    localStorage.removeItem(TOKEN_KEY);
+    clearToken();
     showView('login');
   }
 
@@ -47,7 +61,7 @@
     e.preventDefault();
     try {
       const data = await api('/api/admin/login', { body: { email: $('l-email').value, password: $('l-password').value } });
-      localStorage.setItem(TOKEN_KEY, data.token);
+      setToken(data.token);
       $('admin-name').textContent = data.name;
       showMsg('');
       enterDash();
@@ -234,6 +248,6 @@
   }
 
   // ---- ניתוב ראשוני ----
-  if (localStorage.getItem(TOKEN_KEY)) enterDash();
+  if (getToken()) enterDash();
   else showView('login');
 })();
