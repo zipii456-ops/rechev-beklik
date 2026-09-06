@@ -308,11 +308,24 @@
           <dt>טרם שולם</dt><dd style="color:var(--red)">${money(t.unpaid)}</dd>
         </dl>
         <div class="btn-row"><button class="btn small outline" id="export-billing" type="button">ייצוא לאקסל (CSV)</button></div>
-      </div>`;
+      </div>
+      ${t.mismatches ? `<div class="msg error">
+        <strong>⚠ ${t.mismatches} אי-התאמות לבדיקה</strong><br>
+        בעסקאות אלה הספק דיווח שהעסקה לא נסגרה, אך הלקוח אישר שקיבל את הרכב.
+      </div>` : ''}
+      ${t.disputed ? `<div class="msg info">
+        ב-${t.disputed} עסקאות שדווחו כסגורות הלקוח מסר שלא קיבל את הרכב — כדאי לברר לפני הגבייה.
+      </div>` : ''}`;
 
     const perSupplier = rows.map(r => {
       const risk = r.notClosedCount > 0 && r.notClosedCount >= r.closedCount
         ? `<span class="tag urgent">${r.notClosedCount} סומנו "לא נסגר"</span>` : '';
+      const mismatchBox = r.mismatches.length ? `
+        <div class="msg error" style="margin-top:10px">
+          <strong>⚠ הלקוח אישר קבלת רכב בעסקאות שדווחו כלא נסגרו:</strong>
+          <ul style="margin:6px 18px 0">${r.mismatches.map(m =>
+            `<li>${m.publicId} · ${esc(m.carModel || '')} · הוצע ${money(m.price)} ${esc(m.priceUnit || '')}</li>`).join('')}</ul>
+        </div>` : '';
       return `
       <div class="card">
         <div class="req-head">
@@ -326,20 +339,28 @@
           <dt>תעריף</dt><dd>${r.percent}%${r.customPercent === null ? ' (כללי)' : ' (אישי)'}</dd>
         </dl>
         <div class="tags">${risk}</div>
+        ${mismatchBox}
         <div class="btn-row">
           <button class="btn small outline" data-set-pct="${r.supplierId}" data-current="${r.customPercent === null ? '' : r.customPercent}">תעריף אישי</button>
         </div>
         ${r.deals.length ? `<div class="table-wrap" style="margin-top:10px"><table>
-          <thead><tr><th>בקשה</th><th>רכב</th><th>סכום העסקה</th><th>דמי ניהול</th><th>נסגרה</th><th>תשלום</th></tr></thead>
+          <thead><tr><th>בקשה</th><th>רכב</th><th>סכום העסקה</th><th>דמי ניהול</th><th>אישור לקוח</th><th>נסגרה</th><th>תשלום</th></tr></thead>
           <tbody>${r.deals.map(d => `
-            <tr>
+            <tr${d.waived ? ' style="opacity:.5"' : ''}>
               <td>${d.publicId}</td>
               <td>${esc(d.carModel || '—')}</td>
               <td>${money(d.finalAmount)}</td>
-              <td>${money(d.commission)}</td>
+              <td>${d.waived ? '<s>' + money(d.commission) + '</s> בוטל' : money(d.commission)}</td>
+              <td>${d.customerConfirmed === null ? '<span class="order-sub">ממתין</span>'
+                    : (d.customerConfirmed ? '<span class="badge closed">אושר ✓</span>'
+                                           : '<span class="badge lost">הלקוח מכחיש</span>')}</td>
               <td>${(d.closedAt || '').slice(0, 10)}</td>
-              <td><button class="btn small ${d.paid ? 'outline' : 'secondary'}" data-paid="${d.offerId}" data-value="${d.paid ? 0 : 1}">
-                ${d.paid ? 'שולם ✓' : 'סמן כשולם'}</button></td>
+              <td>
+                <button class="btn small ${d.paid ? 'outline' : 'secondary'}" data-paid="${d.offerId}" data-value="${d.paid ? 0 : 1}">
+                  ${d.paid ? 'שולם ✓' : 'סמן כשולם'}</button>
+                <button class="btn small outline" data-waive="${d.offerId}" data-value="${d.waived ? 0 : 1}">
+                  ${d.waived ? 'החזרת חיוב' : 'ביטול חיוב'}</button>
+              </td>
             </tr>`).join('')}</tbody>
         </table></div>` : '<div class="empty">אין עדיין עסקאות שנסגרו</div>'}
       </div>`;
@@ -367,6 +388,18 @@
       };
     });
 
+    document.querySelectorAll('[data-waive]').forEach(btn => {
+      btn.onclick = async () => {
+        const waiving = Number(btn.dataset.value) === 1;
+        if (waiving && !confirm('לבטל את החיוב על עסקה זו? היא לא תיכלל בדוח הגבייה.')) return;
+        try {
+          await api(`/api/admin/offers/${btn.dataset.waive}/waive`, { body: { waived: Number(btn.dataset.value) } });
+          showMsg(waiving ? 'החיוב בוטל' : 'החיוב הוחזר', 'success');
+          load();
+        } catch (err) { showMsg(err.message, 'error'); }
+      };
+    });
+
     document.querySelectorAll('[data-paid]').forEach(btn => {
       btn.onclick = async () => {
         try {
@@ -377,10 +410,11 @@
     });
 
     $('export-billing').onclick = () => {
-      const lines = [['ספק', 'אזור', 'בקשה', 'רכב', 'סכום העסקה', 'דמי ניהול', 'תאריך סגירה', 'שולם']];
+      const lines = [['ספק', 'אזור', 'בקשה', 'רכב', 'סכום העסקה', 'דמי ניהול', 'אישור לקוח', 'תאריך סגירה', 'שולם', 'בוטל']];
       billing.suppliers.forEach(r => r.deals.forEach(d => lines.push([
         r.name, r.region, d.publicId, d.carModel || '', d.finalAmount, d.commission,
-        (d.closedAt || '').slice(0, 10), d.paid ? 'כן' : 'לא',
+        d.customerConfirmed === null ? 'ממתין' : (d.customerConfirmed ? 'אושר' : 'הוכחש'),
+        (d.closedAt || '').slice(0, 10), d.paid ? 'כן' : 'לא', d.waived ? 'כן' : 'לא',
       ])));
       const csv = '\ufeff' + lines.map(l => l.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
       const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));

@@ -176,6 +176,36 @@
     $('track-status').innerHTML = statusBadge(r.status);
     $('track-id').textContent = 'מספר בקשה: ' + r.publicId;
 
+    // אחרי סיום העסקה — מבקשים מהלקוח לאשר שקיבל את הרכב בפועל
+    const confirmBox = $('confirm-box');
+    if (r.needsConfirmation) {
+      confirmBox.innerHTML = `
+        <div class="card" style="border:2px solid var(--yellow)">
+          <h3>רגע אחד — קיבלת את הרכב?</h3>
+          <p class="hint">הסוכנות דיווחה שהטיפול בבקשה הסתיים.
+            נשמח לדעת אם הרכב אכן נמסר לך, כדי לוודא שהעסקה תועדה נכון.</p>
+          <div class="btn-row">
+            <button class="btn small" data-confirm="yes">כן, קיבלתי את הרכב</button>
+            <button class="btn small outline" data-confirm="no">לא, העסקה לא יצאה לפועל</button>
+          </div>
+        </div>`;
+      confirmBox.querySelectorAll('[data-confirm]').forEach(btn => {
+        btn.onclick = async () => {
+          try {
+            await api(`/api/track/${token}/confirm`, { body: { received: btn.dataset.confirm === 'yes' } });
+            showMsg('תודה על העדכון!', 'success');
+            loadTrack(token, true);
+          } catch (err) { showMsg(err.message, 'error'); }
+        };
+      });
+    } else {
+      const answered = data.offers.find(o => o.chosen && o.customerConfirmed !== null);
+      confirmBox.innerHTML = answered
+        ? `<div class="msg ${answered.customerConfirmed ? 'success' : 'info'}">${
+            answered.customerConfirmed ? 'אישרת שקיבלת את הרכב — תודה!' : 'עדכנת שהעסקה לא יצאה לפועל.'}</div>`
+        : '';
+    }
+
     const offers = data.offers.slice();
     const canChoose = r.status === 'ממתין להצעות';
     $('offers-count').textContent = offers.length;

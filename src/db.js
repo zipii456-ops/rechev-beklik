@@ -198,6 +198,12 @@ if (!billCols.includes('commission')) db.exec('ALTER TABLE offers ADD COLUMN com
 if (!billCols.includes('commission_paid')) db.exec('ALTER TABLE offers ADD COLUMN commission_paid INTEGER NOT NULL DEFAULT 0');
 if (!billCols.includes('closed_at')) db.exec('ALTER TABLE offers ADD COLUMN closed_at TEXT');
 
+// אישור הלקוח: NULL = טרם נשאל, 1 = קיבל את הרכב, 0 = לא קיבל
+if (!billCols.includes('customer_confirmed')) db.exec('ALTER TABLE offers ADD COLUMN customer_confirmed INTEGER');
+if (!billCols.includes('confirmed_at')) db.exec('ALTER TABLE offers ADD COLUMN confirmed_at TEXT');
+// חיוב שבוטל על ידי ההנהלה (למשל עסקה במחלוקת)
+if (!billCols.includes('commission_waived')) db.exec('ALTER TABLE offers ADD COLUMN commission_waived INTEGER NOT NULL DEFAULT 0');
+
 const supCols = db.prepare('PRAGMA table_info(suppliers)').all().map(c => c.name);
 if (!supCols.includes('commission_percent')) db.exec('ALTER TABLE suppliers ADD COLUMN commission_percent REAL');
 

@@ -1,6 +1,7 @@
 // API לקוח — ללא הרשמה: יצירת בקשה, מעקב לפי טוקן, בחירת הצעה
 const express = require('express');
-const { db, REGIONS, CAR_TYPES, CAR_MODELS, CAR_CATALOG, CAR_TYPE_SPECS, GEARBOXES, PRICE_UNITS, newToken, publicIdFor, resolveCarImage } = require('../db');
+const { db, REGIONS, CAR_TYPES, CAR_MODELS, CAR_CATALOG, CAR_TYPE_SPECS, GEARBOXES, PRICE_UNITS,
+  FINAL_STATUSES, newToken, publicIdFor, resolveCarImage } = require('../db');
 
 const router = express.Router();
 
@@ -72,14 +73,21 @@ router.get('/track/:token', (req, res) => {
   // ללא פרטי ספק — רק הרכב (דגם + תמונה), מחיר ותנאים
   const offers = db.prepare(`
     SELECT o.id, o.price, o.price_unit, o.car_type, o.car_model, o.note, o.chosen, o.status,
-           c.photo AS car_photo, c.gearbox AS car_gearbox
+           o.customer_confirmed, c.photo AS car_photo, c.gearbox AS car_gearbox
     FROM offers o LEFT JOIN supplier_cars c ON c.id = o.car_id
     WHERE o.request_id=? AND o.available=1
     ORDER BY o.chosen DESC, o.price ASC`).all(r.id);
 
+  // אחרי שהספק דיווח על תוצאת העסקה — מבקשים מהלקוח לאשר שקיבל את הרכב
+  const chosen = offers.find(o => o.chosen);
+  const needsConfirmation = !!chosen && FINAL_STATUSES.includes(r.status)
+    && (chosen.customer_confirmed === null || chosen.customer_confirmed === undefined);
+
   res.json({
-    request: customerRequestView(r),
+    request: { ...customerRequestView(r), needsConfirmation },
     offers: offers.map(o => ({
+      customerConfirmed: o.customer_confirmed === null || o.customer_confirmed === undefined
+        ? null : !!o.customer_confirmed,
       id: o.id, price: o.price, priceUnit: o.price_unit, carType: o.car_type,
       carModel: o.car_model, carPhoto: o.car_photo, gearbox: o.car_gearbox, note: o.note,
       chosen: !!o.chosen, status: o.status,
@@ -99,6 +107,24 @@ router.post('/track/:token/choose', (req, res) => {
   db.prepare('UPDATE offers SET chosen=1 WHERE id=?').run(offer.id);
   db.prepare("UPDATE requests SET status='נבחרה הצעה' WHERE id=?").run(r.id);
   res.json({ ok: true });
+});
+
+// אישור הלקוח שקיבל (או לא קיבל) את הרכב בפועל
+router.post('/track/:token/confirm', (req, res) => {
+  const r = db.prepare('SELECT * FROM requests WHERE track_token=?').get(req.params.token);
+  if (!r) return res.status(404).json({ error: 'הבקשה לא נמצאה' });
+  if (!FINAL_STATUSES.includes(r.status)) {
+    return res.status(400).json({ error: 'העסקה עדיין לא הסתיימה' });
+  }
+  const offer = db.prepare('SELECT * FROM offers WHERE request_id=? AND chosen=1').get(r.id);
+  if (!offer) return res.status(404).json({ error: 'לא נמצאה הצעה שנבחרה' });
+  if (offer.customer_confirmed !== null && offer.customer_confirmed !== undefined) {
+    return res.status(400).json({ error: 'כבר נמסרה תשובה עבור עסקה זו' });
+  }
+  const received = req.body?.received === true;
+  db.prepare("UPDATE offers SET customer_confirmed=?, confirmed_at=datetime('now') WHERE id=?")
+    .run(received ? 1 : 0, offer.id);
+  res.json({ ok: true, received });
 });
 
 module.exports = router;

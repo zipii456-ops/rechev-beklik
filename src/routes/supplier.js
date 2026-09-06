@@ -230,7 +230,8 @@ router.post('/offers/:id/status', requireAuth('supplier'), (req, res) => {
 // החיובים של הספק — עסקאות שנסגרו ודמי הניהול עליהן
 router.get('/billing', requireAuth('supplier'), (req, res) => {
   const rows = db.prepare(`
-    SELECT o.id, o.final_amount, o.commission, o.commission_paid, o.closed_at,
+    SELECT o.id, o.final_amount, o.commission, o.commission_paid, o.commission_waived,
+           o.customer_confirmed, o.closed_at,
            o.car_model, r.public_id, r.start_date, r.end_date
     FROM offers o JOIN requests r ON r.id = o.request_id
     WHERE o.supplier_id=? AND o.status='נסגר' AND o.chosen=1
@@ -240,8 +241,11 @@ router.get('/billing', requireAuth('supplier'), (req, res) => {
     offerId: o.id, publicId: o.public_id, carModel: o.car_model,
     startDate: o.start_date, endDate: o.end_date,
     finalAmount: o.final_amount, commission: o.commission,
-    paid: !!o.commission_paid, closedAt: o.closed_at,
-  }));
+    paid: !!o.commission_paid, waived: !!o.commission_waived,
+    customerConfirmed: o.customer_confirmed === null || o.customer_confirmed === undefined
+      ? null : !!o.customer_confirmed,
+    closedAt: o.closed_at,
+  })).filter(d => !d.waived);
   const unpaid = deals.filter(d => !d.paid);
   const round2 = (n) => Math.round(n * 100) / 100;
   res.json({

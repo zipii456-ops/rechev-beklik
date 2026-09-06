@@ -95,11 +95,17 @@ router.post('/clear-requests', requireAuth('admin'), (req, res) => {
 router.get('/billing', requireAuth('admin'), (req, res) => {
   const suppliers = db.prepare('SELECT * FROM suppliers WHERE removed=0 ORDER BY region, name').all();
   const dealsStmt = db.prepare(`
-    SELECT o.id, o.final_amount, o.commission, o.commission_paid, o.closed_at, o.car_model,
-           r.public_id, r.region
+    SELECT o.id, o.final_amount, o.commission, o.commission_paid, o.commission_waived,
+           o.customer_confirmed, o.closed_at, o.car_model, r.public_id, r.region
     FROM offers o JOIN requests r ON r.id = o.request_id
     WHERE o.supplier_id=? AND o.status='נסגר' AND o.chosen=1
     ORDER BY o.closed_at DESC`);
+  // אי-התאמה: הספק דיווח שהעסקה לא נסגרה, אך הלקוח מאשר שקיבל את הרכב
+  const mismatchStmt = db.prepare(`
+    SELECT o.id, o.car_model, o.price, o.price_unit, o.confirmed_at, r.public_id, r.region
+    FROM offers o JOIN requests r ON r.id = o.request_id
+    WHERE o.supplier_id=? AND o.chosen=1 AND o.status='לא נסגר' AND o.customer_confirmed=1
+    ORDER BY o.confirmed_at DESC`);
   // מדד להתחמקות: כמה עסקאות שנבחרו סומנו בסוף כ"לא נסגר"
   const lostStmt = db.prepare(
     "SELECT COUNT(*) AS n FROM offers WHERE supplier_id=? AND chosen=1 AND status='לא נסגר'");
@@ -108,8 +114,10 @@ router.get('/billing', requireAuth('admin'), (req, res) => {
   const rows = suppliers.map(sup => {
     const deals = dealsStmt.all(sup.id);
     const notClosed = lostStmt.get(sup.id).n;
-    const commission = deals.reduce((a, d) => a + (d.commission || 0), 0);
-    const unpaid = deals.filter(d => !d.commission_paid).reduce((a, d) => a + (d.commission || 0), 0);
+    const mismatches = mismatchStmt.all(sup.id);
+    const billable = deals.filter(d => !d.commission_waived);
+    const commission = billable.reduce((a, d) => a + (d.commission || 0), 0);
+    const unpaid = billable.filter(d => !d.commission_paid).reduce((a, d) => a + (d.commission || 0), 0);
     return {
       supplierId: sup.id, name: sup.name, region: sup.region, email: sup.email,
       active: !!sup.active,
@@ -118,13 +126,21 @@ router.get('/billing', requireAuth('admin'), (req, res) => {
         ? null : Number(sup.commission_percent),
       closedCount: deals.length,
       notClosedCount: notClosed,
-      turnover: deals.reduce((a, d) => a + (d.final_amount || 0), 0),
+      mismatches: mismatches.map(m => ({
+        offerId: m.id, publicId: m.public_id, region: m.region,
+        carModel: m.car_model, price: m.price, priceUnit: m.price_unit, confirmedAt: m.confirmed_at,
+      })),
+      disputedCount: deals.filter(d => d.customer_confirmed === 0).length,
+      turnover: billable.reduce((a, d) => a + (d.final_amount || 0), 0),
       commission: round2(commission),
       unpaid: round2(unpaid),
       deals: deals.map(d => ({
         offerId: d.id, publicId: d.public_id, region: d.region, carModel: d.car_model,
         finalAmount: d.final_amount, commission: d.commission,
-        paid: !!d.commission_paid, closedAt: d.closed_at,
+        paid: !!d.commission_paid, waived: !!d.commission_waived,
+        customerConfirmed: d.customer_confirmed === null || d.customer_confirmed === undefined
+          ? null : !!d.customer_confirmed,
+        closedAt: d.closed_at,
       })),
     };
   });
@@ -137,6 +153,8 @@ router.get('/billing', requireAuth('admin'), (req, res) => {
       commission: round2(rows.reduce((a, r) => a + r.commission, 0)),
       unpaid: round2(rows.reduce((a, r) => a + r.unpaid, 0)),
       deals: rows.reduce((a, r) => a + r.closedCount, 0),
+      mismatches: rows.reduce((a, r) => a + r.mismatches.length, 0),
+      disputed: rows.reduce((a, r) => a + r.disputedCount, 0),
     },
   });
 });
@@ -166,6 +184,15 @@ router.post('/suppliers/:id/commission', requireAuth('admin'), (req, res) => {
   }
   db.prepare('UPDATE suppliers SET commission_percent=? WHERE id=?').run(percent, sup.id);
   res.json({ ok: true, percent });
+});
+
+// ביטול חיוב (עסקה במחלוקת) או החזרתו
+router.post('/offers/:id/waive', requireAuth('admin'), (req, res) => {
+  const offer = db.prepare("SELECT * FROM offers WHERE id=? AND status='נסגר'").get(Number(req.params.id));
+  if (!offer) return res.status(404).json({ error: 'החיוב לא נמצא' });
+  const waived = req.body?.waived ? 1 : 0;
+  db.prepare('UPDATE offers SET commission_waived=? WHERE id=?').run(waived, offer.id);
+  res.json({ ok: true, waived: !!waived });
 });
 
 // סימון חיוב כשולם / לא שולם

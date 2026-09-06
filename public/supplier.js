@@ -372,13 +372,16 @@
         </dl>
       </div>
       ${billing.deals.length ? `<div class="table-wrap"><table>
-        <thead><tr><th>בקשה</th><th>רכב</th><th>סכום העסקה</th><th>דמי ניהול</th><th>נסגרה</th><th>תשלום</th></tr></thead>
+        <thead><tr><th>בקשה</th><th>רכב</th><th>סכום העסקה</th><th>דמי ניהול</th><th>אישור לקוח</th><th>נסגרה</th><th>תשלום</th></tr></thead>
         <tbody>${billing.deals.map(d => `
           <tr>
             <td>${d.publicId}</td>
             <td>${esc(d.carModel || '—')}</td>
             <td>${money(d.finalAmount)}</td>
             <td>${money(d.commission)}</td>
+            <td>${d.customerConfirmed === null ? '<span class="order-sub">ממתין</span>'
+                  : (d.customerConfirmed ? '<span class="badge closed">אושר ✓</span>'
+                                         : '<span class="badge lost">הלקוח מכחיש</span>')}</td>
             <td>${(d.closedAt || '').slice(0, 10)}</td>
             <td>${d.paid ? '<span class="badge closed">שולם ✓</span>' : '<span class="badge lost">לתשלום</span>'}</td>
           </tr>`).join('')}</tbody>
