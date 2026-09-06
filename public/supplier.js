@@ -90,6 +90,7 @@
   }
 
   let hadCars = false;   // כדי לזהות איפוס נתונים בצד השרת
+  let lastBoard = null;  // הנתונים האחרונים מהשרת — לציור מחדש מיידי
 
   async function load(silent) {
     try {
@@ -101,21 +102,33 @@
       }
       hadCars = cars.length > 0;
       $('sup-name').textContent = `${data.supplier.name} · אזור ${data.supplier.region}`;
+      lastBoard = { supplier: data.supplier, requests: data.requests };
       render(data.supplier, data.requests);
     } catch (err) {
       if (!silent) showMsg(err.message, 'error');
     }
   }
 
-  // שמירת מה שהוקלד לפני רענון המסך, כדי שלא ילך לאיבוד
+  // ציור מחדש מהנתונים שכבר בידינו — מיידי, בלי המתנה לרשת
+  function rerender() {
+    if (lastBoard) render(lastBoard.supplier, lastBoard.requests);
+    else load(true);
+  }
+
+  // שמירת המחירים שהוקלדו לפני ציור מחדש.
+  // חשוב: מעדכן מחירים בלבד — רשימת הרכבים בהצעה מנוהלת ב-drafts,
+  // אחרת רכב שזה עתה נוסף בלחיצה היה נמחק לפני שהספיק להיות מצויר.
   function syncDraftsFromDOM() {
     document.querySelectorAll('[data-draft-req]').forEach(box => {
       const id = box.dataset.draftReq;
-      const rows = [...box.querySelectorAll('[data-draft-row]')].map(row => ({
-        carId: Number(row.dataset.draftRow),
-        price: row.querySelector('input[name="price"]').value,
-      }));
-      drafts[id] = rows;
+      if (!drafts[id]) return;
+      const priceByCar = {};
+      box.querySelectorAll('[data-draft-row]').forEach(row => {
+        const input = row.querySelector('input[name="price"]');
+        if (input) priceByCar[row.dataset.draftRow] = input.value;
+      });
+      drafts[id] = drafts[id].map(d =>
+        String(d.carId) in priceByCar ? { carId: d.carId, price: priceByCar[String(d.carId)] } : d);
       const unit = box.querySelector('select[name="priceUnit"]');
       if (unit) draftUnit[id] = unit.value;
       const note = box.querySelector('input[name="note"]');
@@ -410,10 +423,10 @@
 
   function bindBoard() {
     document.querySelectorAll('[data-tab]').forEach(btn => {
-      btn.onclick = () => { syncDraftsFromDOM(); activeTab = btn.dataset.tab; load(true); };
+      btn.onclick = () => { syncDraftsFromDOM(); activeTab = btn.dataset.tab; rerender(); };
     });
     document.querySelectorAll('[data-goto-cars]').forEach(a => {
-      a.onclick = (e) => { e.preventDefault(); activeTab = 'cars'; load(true); };
+      a.onclick = (e) => { e.preventDefault(); activeTab = 'cars'; rerender(); };
     });
 
     // הוספה/הסרה של רכב מהטיוטה
@@ -425,7 +438,7 @@
         if (!drafts[reqId].some(d => d.carId === Number(carId))) {
           drafts[reqId].push({ carId: Number(carId), price: '' });
         }
-        load(true);
+        rerender();
       };
     });
     document.querySelectorAll('[data-remove-draft]').forEach(btn => {
@@ -433,7 +446,7 @@
         syncDraftsFromDOM();
         const [reqId, carId] = btn.dataset.removeDraft.split(':');
         drafts[reqId] = (drafts[reqId] || []).filter(d => d.carId !== Number(carId));
-        load(true);
+        rerender();
       };
     });
 
@@ -470,7 +483,7 @@
       };
     });
     document.querySelectorAll('[data-reopen]').forEach(btn => {
-      btn.onclick = () => { drafts[btn.dataset.reopen] = []; activeTab = 'sent'; load(true); };
+      btn.onclick = () => { drafts[btn.dataset.reopen] = []; activeTab = 'sent'; rerender(); };
     });
     document.querySelectorAll('[data-final]').forEach(btn => {
       btn.onclick = async () => {
@@ -485,10 +498,10 @@
 
     // ---- צי הרכבים ----
     document.querySelectorAll('[data-edit-car]').forEach(btn => {
-      btn.onclick = () => { editingCarId = Number(btn.dataset.editCar); load(true); };
+      btn.onclick = () => { editingCarId = Number(btn.dataset.editCar); rerender(); };
     });
     document.querySelectorAll('[data-cancel-edit]').forEach(btn => {
-      btn.onclick = () => { editingCarId = null; load(true); };
+      btn.onclick = () => { editingCarId = null; rerender(); };
     });
     document.querySelectorAll('[data-edit-form]').forEach(form => {
       const preview = form.querySelector('[data-edit-preview]');
