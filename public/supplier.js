@@ -61,6 +61,7 @@
     clearToken();
     clearInterval(pollTimer);
     showView('login');
+    prefillDemo();
   }
 
   // ---- התחברות ----
@@ -585,18 +586,55 @@
     });
   }
 
-  // מילוי אוטומטי של פרטי כניסה — רק כשמצב ההדגמה פעיל (נעלם לפני עלייה לאוויר)
+  // מצב בדיקות: מילוי פרטי הכניסה ורשימת כל הספקים לבחירה מהירה
+  // (נעלם אוטומטית כשמכבים את מצב ההדגמה לפני עלייה לאוויר)
   async function prefillDemo() {
     try {
       const res = await fetch('/api/demo/accounts');
       if (!res.ok) return;
       const data = await res.json();
-      const first = (data.suppliers || [])[0];
+      const sups = data.suppliers || [];
       const pass = data.defaults && data.defaults.supplierPassword;
-      if (!first || !pass) return;
-      $('l-email').value = first.email || '';
+      if (!sups.length || !pass) return;
+
+      $('l-email').value = sups[0].email || '';
       $('l-password').value = pass;
-      showMsg('פרטי הכניסה מולאו אוטומטית למצב בדיקות — אפשר פשוט ללחוץ "כניסה"', 'info');
+
+      const byRegion = {};
+      sups.forEach(sup => (byRegion[sup.region] = byRegion[sup.region] || []).push(sup));
+
+      $('demo-pick').innerHTML = `
+        <div class="card">
+          <h3>כניסה מהירה לבדיקות</h3>
+          <p class="hint">בחרו ספק וייכנסו מיד, בלי סיסמה.
+            שימו לב: כל ספק רואה רק בקשות מהאזור שלו — לבקשה מירושלים צריך ספק מירושלים.</p>
+          ${Object.keys(byRegion).map(region => `
+            <div class="builder-title">${esc(region)}</div>
+            ${byRegion[region].map(sup => `
+              <button type="button" class="pick-btn" data-demo-sup="${sup.id}">
+                <div class="pick-row">
+                  <div class="pick-name"><strong>${esc(sup.name)}</strong><small>${esc(sup.email)}</small></div>
+                  <span class="pick-plus">←</span>
+                </div>
+              </button>`).join('')}`).join('')}
+        </div>`;
+
+      document.querySelectorAll('[data-demo-sup]').forEach(b => {
+        b.onclick = async () => {
+          try {
+            const r = await fetch('/api/demo/login', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ role: 'supplier', id: Number(b.dataset.demoSup) }),
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || 'שגיאה בכניסה');
+            setToken(d.token);
+            showMsg('');
+            $('demo-pick').innerHTML = '';
+            enterBoard();
+          } catch (err) { showMsg(err.message, 'error'); }
+        };
+      });
     } catch (e) {}
   }
 
