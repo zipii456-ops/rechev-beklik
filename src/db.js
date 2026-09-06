@@ -138,6 +138,11 @@ CREATE TABLE IF NOT EXISTS supplier_cars (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
   role TEXT NOT NULL,
@@ -186,12 +191,46 @@ if (offersSql && /UNIQUE\(request_id, supplier_id\)/.test(offersSql.sql)) {
   db.exec('PRAGMA foreign_keys=ON');
   console.log('טבלת ההצעות עודכנה — ניתן להציע כמה רכבים לאותה בקשה');
 }
+// עמודות לניהול דמי הניהול (עמלה) על עסקאות שנסגרו
+const billCols = db.prepare('PRAGMA table_info(offers)').all().map(c => c.name);
+if (!billCols.includes('final_amount')) db.exec('ALTER TABLE offers ADD COLUMN final_amount INTEGER');
+if (!billCols.includes('commission')) db.exec('ALTER TABLE offers ADD COLUMN commission INTEGER');
+if (!billCols.includes('commission_paid')) db.exec('ALTER TABLE offers ADD COLUMN commission_paid INTEGER NOT NULL DEFAULT 0');
+if (!billCols.includes('closed_at')) db.exec('ALTER TABLE offers ADD COLUMN closed_at TEXT');
+
+const supCols = db.prepare('PRAGMA table_info(suppliers)').all().map(c => c.name);
+if (!supCols.includes('commission_percent')) db.exec('ALTER TABLE suppliers ADD COLUMN commission_percent REAL');
+
 // רכב אחד יכול להופיע פעם אחת בלבד בכל בקשה
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_offer_request_car ON offers(request_id, car_id) WHERE car_id IS NOT NULL');
 
 const carCols = db.prepare('PRAGMA table_info(supplier_cars)').all().map(c => c.name);
 if (!carCols.includes('gearbox')) {
   db.exec("ALTER TABLE supplier_cars ADD COLUMN gearbox TEXT NOT NULL DEFAULT 'אוטומטי'");
+}
+
+const DEFAULT_COMMISSION = 10;   // אחוז ברירת מחדל מדמי הניהול
+
+function getSetting(key, fallback) {
+  const row = db.prepare('SELECT value FROM settings WHERE key=?').get(key);
+  return row ? row.value : fallback;
+}
+
+function setSetting(key, value) {
+  db.prepare('INSERT INTO settings (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value')
+    .run(key, String(value));
+}
+
+// אחוז העמלה שחל על ספק מסוים — תעריף אישי אם הוגדר, אחרת התעריף הכללי
+function commissionPercentFor(supplier) {
+  if (supplier && supplier.commission_percent !== null && supplier.commission_percent !== undefined) {
+    return Number(supplier.commission_percent);
+  }
+  return Number(getSetting('commission_percent', DEFAULT_COMMISSION));
+}
+
+function calcCommission(amount, percent) {
+  return Math.round((Number(amount) || 0) * (Number(percent) || 0)) / 100;
 }
 
 function hashPassword(password) {
@@ -287,6 +326,7 @@ function seedIfEmpty() {
 
 module.exports = {
   db, REGIONS, CAR_TYPES, CAR_MODELS, CAR_CATALOG, CAR_TYPE_SPECS, GEARBOXES, PRICE_UNITS, REQUEST_STATUSES, FINAL_STATUSES,
+  DEFAULT_COMMISSION, getSetting, setSetting, commissionPercentFor, calcCommission,
   resolveCarImage,
   hashPassword, verifyPassword, newToken, publicIdFor, seedIfEmpty,
 };

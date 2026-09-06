@@ -1,6 +1,7 @@
 // API אדמין — צפייה בהכול, שינוי סטטוסים, ניהול ספקים
 const express = require('express');
-const { db, REGIONS, REQUEST_STATUSES, FINAL_STATUSES, hashPassword, verifyPassword } = require('../db');
+const { db, REGIONS, REQUEST_STATUSES, FINAL_STATUSES, hashPassword, verifyPassword,
+  getSetting, setSetting, commissionPercentFor, DEFAULT_COMMISSION } = require('../db');
 const { createSession, destroySession, destroyUserSessions, requireAuth } = require('../auth');
 
 const router = express.Router();
@@ -87,6 +88,93 @@ router.post('/clear-requests', requireAuth('admin'), (req, res) => {
   db.prepare('DELETE FROM offers').run();
   db.prepare('DELETE FROM requests').run();
   res.json({ ok: true });
+});
+
+// ===== דמי ניהול =====
+// דוח חיובים: לכל ספק — עסקאות שנסגרו, מחזור, עמלה, ומה טרם שולם
+router.get('/billing', requireAuth('admin'), (req, res) => {
+  const suppliers = db.prepare('SELECT * FROM suppliers WHERE removed=0 ORDER BY region, name').all();
+  const dealsStmt = db.prepare(`
+    SELECT o.id, o.final_amount, o.commission, o.commission_paid, o.closed_at, o.car_model,
+           r.public_id, r.region
+    FROM offers o JOIN requests r ON r.id = o.request_id
+    WHERE o.supplier_id=? AND o.status='נסגר' AND o.chosen=1
+    ORDER BY o.closed_at DESC`);
+  // מדד להתחמקות: כמה עסקאות שנבחרו סומנו בסוף כ"לא נסגר"
+  const lostStmt = db.prepare(
+    "SELECT COUNT(*) AS n FROM offers WHERE supplier_id=? AND chosen=1 AND status='לא נסגר'");
+  const round2 = (n) => Math.round(n * 100) / 100;
+
+  const rows = suppliers.map(sup => {
+    const deals = dealsStmt.all(sup.id);
+    const notClosed = lostStmt.get(sup.id).n;
+    const commission = deals.reduce((a, d) => a + (d.commission || 0), 0);
+    const unpaid = deals.filter(d => !d.commission_paid).reduce((a, d) => a + (d.commission || 0), 0);
+    return {
+      supplierId: sup.id, name: sup.name, region: sup.region, email: sup.email,
+      active: !!sup.active,
+      percent: commissionPercentFor(sup),
+      customPercent: sup.commission_percent === null || sup.commission_percent === undefined
+        ? null : Number(sup.commission_percent),
+      closedCount: deals.length,
+      notClosedCount: notClosed,
+      turnover: deals.reduce((a, d) => a + (d.final_amount || 0), 0),
+      commission: round2(commission),
+      unpaid: round2(unpaid),
+      deals: deals.map(d => ({
+        offerId: d.id, publicId: d.public_id, region: d.region, carModel: d.car_model,
+        finalAmount: d.final_amount, commission: d.commission,
+        paid: !!d.commission_paid, closedAt: d.closed_at,
+      })),
+    };
+  });
+
+  res.json({
+    defaultPercent: Number(getSetting('commission_percent', DEFAULT_COMMISSION)),
+    suppliers: rows,
+    totals: {
+      turnover: rows.reduce((a, r) => a + r.turnover, 0),
+      commission: round2(rows.reduce((a, r) => a + r.commission, 0)),
+      unpaid: round2(rows.reduce((a, r) => a + r.unpaid, 0)),
+      deals: rows.reduce((a, r) => a + r.closedCount, 0),
+    },
+  });
+});
+
+// שינוי אחוז דמי הניהול הכללי
+router.post('/settings/commission', requireAuth('admin'), (req, res) => {
+  const percent = Number(req.body?.percent);
+  if (Number.isNaN(percent) || percent < 0 || percent > 100) {
+    return res.status(400).json({ error: 'אחוז חייב להיות בין 0 ל-100' });
+  }
+  setSetting('commission_percent', percent);
+  res.json({ ok: true, percent });
+});
+
+// תעריף אישי לספק (ריק = לפי התעריף הכללי)
+router.post('/suppliers/:id/commission', requireAuth('admin'), (req, res) => {
+  const sup = db.prepare('SELECT * FROM suppliers WHERE id=? AND removed=0').get(Number(req.params.id));
+  if (!sup) return res.status(404).json({ error: 'הספק לא נמצא' });
+  const raw = req.body?.percent;
+  if (raw === null || raw === '' || raw === undefined) {
+    db.prepare('UPDATE suppliers SET commission_percent=NULL WHERE id=?').run(sup.id);
+    return res.json({ ok: true, percent: null });
+  }
+  const percent = Number(raw);
+  if (Number.isNaN(percent) || percent < 0 || percent > 100) {
+    return res.status(400).json({ error: 'אחוז חייב להיות בין 0 ל-100' });
+  }
+  db.prepare('UPDATE suppliers SET commission_percent=? WHERE id=?').run(percent, sup.id);
+  res.json({ ok: true, percent });
+});
+
+// סימון חיוב כשולם / לא שולם
+router.post('/offers/:id/paid', requireAuth('admin'), (req, res) => {
+  const offer = db.prepare("SELECT * FROM offers WHERE id=? AND status='נסגר'").get(Number(req.params.id));
+  if (!offer) return res.status(404).json({ error: 'החיוב לא נמצא' });
+  const paid = req.body?.paid ? 1 : 0;
+  db.prepare('UPDATE offers SET commission_paid=? WHERE id=?').run(paid, offer.id);
+  res.json({ ok: true, paid: !!paid });
 });
 
 // הוספת ספק

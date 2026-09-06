@@ -17,6 +17,7 @@
   const clearToken = () => { sessionStorage.removeItem(TOKEN_KEY); localStorage.removeItem(TOKEN_KEY); };
 
   let overview = null;
+  let billing = null;
 
   function showMsg(text, kind) {
     $('msg').innerHTML = text ? `<div class="msg ${kind}">${text}</div>` : '';
@@ -77,7 +78,7 @@
   document.querySelectorAll('.tabs button').forEach(btn => {
     btn.onclick = () => {
       document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b === btn));
-      for (const t of ['requests', 'offers', 'suppliers']) {
+      for (const t of ['requests', 'offers', 'suppliers', 'billing']) {
         $('tab-' + t).classList.toggle('hidden', t !== btn.dataset.tab);
       }
     };
@@ -91,9 +92,11 @@
   async function load() {
     try {
       overview = await api('/api/admin/overview');
+      billing = await api('/api/admin/billing');
       renderRequests();
       renderOffers();
       renderSuppliers();
+      renderBilling();
     } catch (err) { showMsg(err.message, 'error'); }
   }
 
@@ -276,6 +279,117 @@
       $('l-password').value = d.admin.password;
       showMsg('פרטי הכניסה מולאו אוטומטית למצב בדיקות — אפשר פשוט ללחוץ "כניסה"', 'info');
     } catch (e) {}
+  }
+
+  // ---- חיובים (דמי ניהול) ----
+  const money = (n) => '\u20aa' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('he-IL');
+
+  function renderBilling() {
+    const rows = billing.suppliers;
+    const t = billing.totals;
+
+    const summary = `
+      <div class="card">
+        <h3>דמי ניהול</h3>
+        <p class="hint">העמלה מחושבת אוטומטית מהסכום שהספק מדווח בסגירת העסקה.</p>
+        <div class="row2">
+          <div class="field">
+            <label>אחוז דמי ניהול כללי</label>
+            <input type="number" id="commission-pct" min="0" max="100" step="0.5" value="${billing.defaultPercent}">
+          </div>
+          <div class="field" style="display:flex;align-items:flex-end">
+            <button class="btn small" id="save-commission" type="button">שמירת התעריף</button>
+          </div>
+        </div>
+        <dl class="kv">
+          <dt>עסקאות שנסגרו</dt><dd>${t.deals}</dd>
+          <dt>מחזור העסקאות</dt><dd>${money(t.turnover)}</dd>
+          <dt>סך דמי ניהול</dt><dd>${money(t.commission)}</dd>
+          <dt>טרם שולם</dt><dd style="color:var(--red)">${money(t.unpaid)}</dd>
+        </dl>
+        <div class="btn-row"><button class="btn small outline" id="export-billing" type="button">ייצוא לאקסל (CSV)</button></div>
+      </div>`;
+
+    const perSupplier = rows.map(r => {
+      const risk = r.notClosedCount > 0 && r.notClosedCount >= r.closedCount
+        ? `<span class="tag urgent">${r.notClosedCount} סומנו "לא נסגר"</span>` : '';
+      return `
+      <div class="card">
+        <div class="req-head">
+          <h3>${esc(r.name)} <span class="order-sub">${esc(r.region)}</span></h3>
+          <span class="badge ${r.unpaid > 0 ? 'lost' : 'closed'}">${r.unpaid > 0 ? 'חוב: ' + money(r.unpaid) : 'אין חוב'}</span>
+        </div>
+        <dl class="kv">
+          <dt>עסקאות שנסגרו</dt><dd>${r.closedCount}</dd>
+          <dt>מחזור</dt><dd>${money(r.turnover)}</dd>
+          <dt>דמי ניהול</dt><dd>${money(r.commission)}</dd>
+          <dt>תעריף</dt><dd>${r.percent}%${r.customPercent === null ? ' (כללי)' : ' (אישי)'}</dd>
+        </dl>
+        <div class="tags">${risk}</div>
+        <div class="btn-row">
+          <button class="btn small outline" data-set-pct="${r.supplierId}" data-current="${r.customPercent === null ? '' : r.customPercent}">תעריף אישי</button>
+        </div>
+        ${r.deals.length ? `<div class="table-wrap" style="margin-top:10px"><table>
+          <thead><tr><th>בקשה</th><th>רכב</th><th>סכום העסקה</th><th>דמי ניהול</th><th>נסגרה</th><th>תשלום</th></tr></thead>
+          <tbody>${r.deals.map(d => `
+            <tr>
+              <td>${d.publicId}</td>
+              <td>${esc(d.carModel || '—')}</td>
+              <td>${money(d.finalAmount)}</td>
+              <td>${money(d.commission)}</td>
+              <td>${(d.closedAt || '').slice(0, 10)}</td>
+              <td><button class="btn small ${d.paid ? 'outline' : 'secondary'}" data-paid="${d.offerId}" data-value="${d.paid ? 0 : 1}">
+                ${d.paid ? 'שולם ✓' : 'סמן כשולם'}</button></td>
+            </tr>`).join('')}</tbody>
+        </table></div>` : '<div class="empty">אין עדיין עסקאות שנסגרו</div>'}
+      </div>`;
+    }).join('');
+
+    $('tab-billing').innerHTML = summary + perSupplier;
+
+    $('save-commission').onclick = async () => {
+      try {
+        await api('/api/admin/settings/commission', { body: { percent: $('commission-pct').value } });
+        showMsg('התעריף עודכן. הוא יחול על עסקאות שייסגרו מעכשיו.', 'success');
+        load();
+      } catch (err) { showMsg(err.message, 'error'); }
+    };
+
+    document.querySelectorAll('[data-set-pct]').forEach(btn => {
+      btn.onclick = async () => {
+        const val = prompt('תעריף אישי באחוזים לספק זה.\nלהשארה ריק — יחול התעריף הכללי.', btn.dataset.current);
+        if (val === null) return;
+        try {
+          await api(`/api/admin/suppliers/${btn.dataset.setPct}/commission`, { body: { percent: val.trim() === '' ? null : val } });
+          showMsg('התעריף עודכן', 'success');
+          load();
+        } catch (err) { showMsg(err.message, 'error'); }
+      };
+    });
+
+    document.querySelectorAll('[data-paid]').forEach(btn => {
+      btn.onclick = async () => {
+        try {
+          await api(`/api/admin/offers/${btn.dataset.paid}/paid`, { body: { paid: Number(btn.dataset.value) } });
+          load();
+        } catch (err) { showMsg(err.message, 'error'); }
+      };
+    });
+
+    $('export-billing').onclick = () => {
+      const lines = [['ספק', 'אזור', 'בקשה', 'רכב', 'סכום העסקה', 'דמי ניהול', 'תאריך סגירה', 'שולם']];
+      billing.suppliers.forEach(r => r.deals.forEach(d => lines.push([
+        r.name, r.region, d.publicId, d.carModel || '', d.finalAmount, d.commission,
+        (d.closedAt || '').slice(0, 10), d.paid ? 'כן' : 'לא',
+      ])));
+      const csv = '\ufeff' + lines.map(l => l.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'rechev-beklik-billing.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    };
   }
 
   // ---- ניתוב ראשוני ----

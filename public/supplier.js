@@ -49,6 +49,7 @@
   const esc = (s) => RB.esc(s);
   const yesNo = (v) => v ? 'כן' : 'לא';
   const carById = (id) => cars.find(c => c.id === Number(id));
+  const money = (n) => '\u20aa' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('he-IL');
 
   function showView(name) {
     $('view-login').classList.toggle('hidden', name !== 'login');
@@ -92,12 +93,15 @@
 
   let hadCars = false;   // כדי לזהות איפוס נתונים בצד השרת
   let lastBoard = null;  // הנתונים האחרונים מהשרת — לציור מחדש מיידי
+  let billing = null;    // דמי הניהול של הספק
 
   async function load(silent) {
     try {
       if (!meta.carTypes.length) meta = await api('/api/meta');
-      const [carsData, data] = await Promise.all([api('/api/supplier/cars'), api('/api/supplier/requests')]);
+      const [carsData, data, bill] = await Promise.all([
+        api('/api/supplier/cars'), api('/api/supplier/requests'), api('/api/supplier/billing')]);
       cars = carsData.cars;
+      billing = bill;
       if (hadCars && cars.length === 0) {
         showMsg('שימו לב: צי הרכבים ריק — ייתכן שהשרת אותחל והנתונים נמחקו. יש להוסיף את הרכבים מחדש.', 'error');
       }
@@ -251,6 +255,7 @@
       { key: 'sent', label: 'ממתינות ללקוח', count: sent.length },
       { key: 'done', label: 'היסטוריה', count: done.length },
       { key: 'cars', label: '🚗 הרכבים שלי', count: cars.length },
+      { key: 'billing', label: '₪ החיובים שלי', count: billing ? billing.totals.deals : 0 },
     ];
 
     let html = '<div class="tabs">' + tabs.map(t => `
@@ -274,7 +279,8 @@
             ${o.note ? `<div class="order-sub" style="margin-top:6px">${esc(o.note)}</div>` : ''}
             ${r.customerPhone ? `<div class="phone-box">📞 טלפון הלקוח: <a href="tel:${esc(r.customerPhone)}">${esc(r.customerPhone)}</a> — התקשרו לסגירת ההשכרה</div>` : ''}
             <div class="btn-row">
-              <button class="btn small" data-final="${o.id}" data-status="נסגר">העסקה נסגרה ✓</button>
+              <button class="btn small" data-final="${o.id}" data-status="נסגר"
+                data-suggested="${o.priceUnit === 'ליום' ? o.price * days : o.price}">העסקה נסגרה ✓</button>
               <button class="btn small danger-outline" data-final="${o.id}" data-status="לא נסגר">לא נסגרה</button>
             </div>
           </div>
@@ -343,9 +349,40 @@
     }
 
     if (activeTab === 'cars') html += renderCarsTab();
+    if (activeTab === 'billing') html += renderBillingTab();
 
     $('board').innerHTML = html;
     bindBoard();
+  }
+
+  // ---- טאב החיובים שלי ----
+  function renderBillingTab() {
+    if (!billing) return '<div class="card empty">טוען...</div>';
+    const t = billing.totals;
+    return `
+      <div class="card">
+        <h3>דמי ניהול</h3>
+        <p class="hint">על כל עסקה שנסגרת דרך המערכת חלים דמי ניהול של ${billing.percent}%
+          מהסכום שדיווחתם בסגירה. החיוב נאסף ומשולם מול ההנהלה.</p>
+        <dl class="kv">
+          <dt>עסקאות שנסגרו</dt><dd>${t.deals}</dd>
+          <dt>סך העסקאות</dt><dd>${money(t.turnover)}</dd>
+          <dt>סך דמי ניהול</dt><dd>${money(t.commission)}</dd>
+          <dt>טרם שולם</dt><dd style="color:${t.unpaid > 0 ? 'var(--red)' : 'var(--green)'}">${money(t.unpaid)}</dd>
+        </dl>
+      </div>
+      ${billing.deals.length ? `<div class="table-wrap"><table>
+        <thead><tr><th>בקשה</th><th>רכב</th><th>סכום העסקה</th><th>דמי ניהול</th><th>נסגרה</th><th>תשלום</th></tr></thead>
+        <tbody>${billing.deals.map(d => `
+          <tr>
+            <td>${d.publicId}</td>
+            <td>${esc(d.carModel || '—')}</td>
+            <td>${money(d.finalAmount)}</td>
+            <td>${money(d.commission)}</td>
+            <td>${(d.closedAt || '').slice(0, 10)}</td>
+            <td>${d.paid ? '<span class="badge closed">שולם ✓</span>' : '<span class="badge lost">לתשלום</span>'}</td>
+          </tr>`).join('')}</tbody>
+      </table></div>` : '<div class="card empty">עדיין לא נסגרו עסקאות</div>'}`;
   }
 
   // ---- טאב הרכבים שלי ----
@@ -488,11 +525,22 @@
     });
     document.querySelectorAll('[data-final]').forEach(btn => {
       btn.onclick = async () => {
-        if (!confirm(`לעדכן את העסקה כ"${btn.dataset.status}"?`)) return;
+        const body = { status: btn.dataset.status };
+        if (btn.dataset.status === 'נסגר') {
+          // הסכום שנגבה בפועל — ממנו מחושבים דמי הניהול
+          const suggested = btn.dataset.suggested || '';
+          const amount = prompt('מה הסכום שנגבה בפועל מהלקוח? (₪)\n\nכולל תוספות והארכות. מסכום זה מחושבים דמי הניהול.', suggested);
+          if (amount === null) return;
+          body.finalAmount = amount;
+        } else if (!confirm('לעדכן את העסקה כ"לא נסגר"?')) {
+          return;
+        }
         try {
-          await api(`/api/supplier/offers/${btn.dataset.final}/status`, { body: { status: btn.dataset.status } });
+          const res = await api(`/api/supplier/offers/${btn.dataset.final}/status`, { body });
           await load();
-          showMsg('הסטטוס עודכן — תודה!', 'success');
+          showMsg(res.commission !== undefined
+            ? `העסקה נסגרה על ${money(res.finalAmount)}. דמי ניהול: ${money(res.commission)} (${res.percent}%)`
+            : 'הסטטוס עודכן — תודה!', 'success');
         } catch (err) { showMsg(err.message, 'error'); }
       };
     });

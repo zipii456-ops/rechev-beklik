@@ -1,6 +1,7 @@
 // API ספק — בקשות מהאזור שלו בלבד, צי רכבים, הצעות (כמה רכבים לבקשה), וסטטוס סופי
 const express = require('express');
-const { db, CAR_TYPES, GEARBOXES, FINAL_STATUSES, PRICE_UNITS, verifyPassword, resolveCarImage } = require('../db');
+const { db, CAR_TYPES, GEARBOXES, FINAL_STATUSES, PRICE_UNITS, verifyPassword, resolveCarImage,
+  commissionPercentFor, calcCommission } = require('../db');
 const { createSession, destroySession, requireAuth } = require('../auth');
 
 const router = express.Router();
@@ -207,9 +208,52 @@ router.post('/offers/:id/status', requireAuth('supplier'), (req, res) => {
   if (!offer) return res.status(404).json({ error: 'ההצעה לא נמצאה' });
   if (!offer.chosen) return res.status(400).json({ error: 'ניתן לעדכן סטטוס סופי רק להצעה שנבחרה' });
 
-  db.prepare('UPDATE offers SET status=? WHERE id=?').run(status, offer.id);
+  if (status === 'נסגר') {
+    // סכום העסקה בפועל נקבע על ידי הספק, וממנו מחושבים דמי הניהול
+    const amount = Number(req.body?.finalAmount);
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'נא להזין את הסכום שנגבה בפועל' });
+    }
+    const percent = commissionPercentFor(req.supplier);
+    const commission = calcCommission(amount, percent);
+    db.prepare("UPDATE offers SET status=?, final_amount=?, commission=?, closed_at=datetime('now') WHERE id=?")
+      .run(status, amount, commission, offer.id);
+    db.prepare('UPDATE requests SET status=? WHERE id=?').run(status, offer.request_id);
+    return res.json({ ok: true, finalAmount: amount, commission, percent });
+  }
+
+  db.prepare("UPDATE offers SET status=?, closed_at=datetime('now') WHERE id=?").run(status, offer.id);
   db.prepare('UPDATE requests SET status=? WHERE id=?').run(status, offer.request_id);
   res.json({ ok: true });
+});
+
+// החיובים של הספק — עסקאות שנסגרו ודמי הניהול עליהן
+router.get('/billing', requireAuth('supplier'), (req, res) => {
+  const rows = db.prepare(`
+    SELECT o.id, o.final_amount, o.commission, o.commission_paid, o.closed_at,
+           o.car_model, r.public_id, r.start_date, r.end_date
+    FROM offers o JOIN requests r ON r.id = o.request_id
+    WHERE o.supplier_id=? AND o.status='נסגר' AND o.chosen=1
+    ORDER BY o.closed_at DESC`).all(req.supplier.id);
+
+  const deals = rows.map(o => ({
+    offerId: o.id, publicId: o.public_id, carModel: o.car_model,
+    startDate: o.start_date, endDate: o.end_date,
+    finalAmount: o.final_amount, commission: o.commission,
+    paid: !!o.commission_paid, closedAt: o.closed_at,
+  }));
+  const unpaid = deals.filter(d => !d.paid);
+  const round2 = (n) => Math.round(n * 100) / 100;
+  res.json({
+    percent: commissionPercentFor(req.supplier),
+    deals,
+    totals: {
+      deals: deals.length,
+      turnover: deals.reduce((a, d) => a + (d.finalAmount || 0), 0),
+      commission: round2(deals.reduce((a, d) => a + (d.commission || 0), 0)),
+      unpaid: round2(unpaid.reduce((a, d) => a + (d.commission || 0), 0)),
+    },
+  });
 });
 
 module.exports = router;

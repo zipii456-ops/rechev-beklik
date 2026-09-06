@@ -90,8 +90,9 @@ const login = (email, password = 'demo1234') =>
   check('ספק מפסיד לא מקבל טלפון', !loser || loser.customerPhone === undefined);
 
   const final = await api(`/api/supplier/offers/${won.myOffers.find(o => o.chosen).id}/status`,
-    { token: t, body: { status: 'נסגר' } });
-  check('סגירת עסקה', final.status === 200);
+    { token: t, body: { status: 'נסגר', finalAmount: 760 } });
+  check('סגירת עסקה עם סכום סופי', final.status === 200 && final.data.commission > 0, final.data);
+  check('דמי ניהול חושבו', final.data.commission === Math.round(760 * final.data.percent) / 100, final.data);
 
   // ===== ניהול =====
   const admin = (await api('/api/admin/login', { body: { email: 'admin@demo.co.il', password: 'admin1234' } })).data.token;
