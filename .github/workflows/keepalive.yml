@@ -1,0 +1,26 @@
+# שומר על השרת ער בשעות הפעילות, כדי שלא יופיע מסך "השירות מתעורר".
+# רץ ב-GitHub Actions — חינמי לחלוטין למאגר ציבורי.
+name: keep-alive
+
+on:
+  schedule:
+    # כל 10 דקות בין 05:00 ל-21:00 UTC — כלומר 08:00 עד 24:00 בשעון ישראל.
+    # השרת החינמי נרדם אחרי 15 דקות ללא פעילות, אז 10 דקות בטוחות.
+    - cron: '*/10 5-21 * * *'
+  workflow_dispatch:        # מאפשר גם הפעלה ידנית מדף ה-Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the app
+        run: |
+          for attempt in 1 2 3; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 90 \
+              https://rechev-beklik.onrender.com/healthz || true)
+            echo "attempt $attempt -> HTTP $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 20
+          done
+          echo "השירות לא ענה בשלושה ניסיונות"
+          exit 1
