@@ -206,8 +206,9 @@
             <td>${s.offersCount}</td>
             <td>${s.active ? '<span class="badge active">פעיל</span>' : '<span class="badge blocked">חסום</span>'}</td>
             <td>
+              <button class="btn small outline" data-password="${s.id}" data-email="${esc(s.email)}">סיסמה חדשה</button>
               <button class="btn small ${s.active ? 'danger-outline' : 'outline'}" data-toggle="${s.id}" data-active="${s.active ? 0 : 1}">
-                ${s.active ? 'חסום' : 'בטל חסימה'}
+                ${s.active ? 'חסימה' : 'ביטול חסימה'}
               </button>
               <button class="btn small danger-outline" data-remove="${s.id}">הסר</button>
             </td>
@@ -226,6 +227,23 @@
         showMsg('הספק נוסף בהצלחה', 'success');
         load();
       } catch (err) { showMsg(err.message, 'error'); }
+    });
+
+    // קביעת סיסמה חדשה לספק — נוצרת סיסמה קלה למסירה, וניתן לערוך אותה
+    document.querySelectorAll('[data-password]').forEach(btn => {
+      btn.onclick = async () => {
+        const email = btn.dataset.email;
+        const suggested = 'rb' + Math.floor(1000 + Math.random() * 9000) + Math.random().toString(36).slice(2, 5);
+        const password = prompt(`סיסמה חדשה עבור ${email}
+
+אפשר להשאיר את הסיסמה המוצעת או להקליד אחרת.
+לאחר השמירה יש למסור אותה לספק — היא לא ניתנת לצפייה שוב.`, suggested);
+        if (password === null) return;
+        try {
+          await api(`/api/admin/suppliers/${btn.dataset.password}/password`, { body: { password } });
+          showMsg(`הסיסמה עודכנה. יש למסור לספק: אימייל ${email} · סיסמה ${password}`, 'success');
+        } catch (err) { showMsg(err.message, 'error'); }
+      };
     });
 
     document.querySelectorAll('[data-toggle]').forEach(btn => {

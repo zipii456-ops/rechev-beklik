@@ -110,6 +110,19 @@ router.post('/suppliers', requireAuth('admin'), (req, res) => {
   res.json({ ok: true });
 });
 
+// קביעת סיסמה חדשה לספק — המנהל מוסר אותה לספק, וכל החיבורים הקיימים מנותקים
+router.post('/suppliers/:id/password', requireAuth('admin'), (req, res) => {
+  const id = Number(req.params.id);
+  const sup = db.prepare('SELECT * FROM suppliers WHERE id=? AND removed=0').get(id);
+  if (!sup) return res.status(404).json({ error: 'הספק לא נמצא' });
+  const password = String(req.body?.password || '');
+  if (password.length < 6) return res.status(400).json({ error: 'סיסמה — לפחות 6 תווים' });
+
+  db.prepare('UPDATE suppliers SET password_hash=? WHERE id=?').run(hashPassword(password), id);
+  destroyUserSessions('supplier', id);
+  res.json({ ok: true, email: sup.email });
+});
+
 // חסימה / ביטול חסימה
 router.patch('/suppliers/:id', requireAuth('admin'), (req, res) => {
   const id = Number(req.params.id);
