@@ -1,7 +1,11 @@
 // Service Worker — מאפשר התקנה כאפליקציה וטעינה מהירה של התמונות.
-// אסטרטגיה: קוד ודפים תמיד מהרשת (כדי שעדכונים יגיעו מיד), תמונות רכב מהמטמון.
-const CACHE = 'rb-v1';
-const IMG = /\/(cars|icon)/;
+// אסטרטגיה: כל בקשות ה-API ישירות מהרשת (אף פעם לא מהמטמון!),
+// דפים וקוד מהרשת עם גיבוי מקומי, ותמונות סטטיות מהמטמון.
+const CACHE = 'rb-v2';
+
+// רק קבצי תמונה סטטיים — חייב להתחיל בתיקייה עצמה,
+// אחרת כתובות כמו /api/supplier/cars היו נתפסות בטעות ומוחזרות מהמטמון.
+const STATIC_IMG = /^\/(cars\/|icon|apple-touch-icon|qr-)/;
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -17,24 +21,33 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  if (req.method !== 'GET') return;
+
+  let url;
+  try { url = new URL(req.url); } catch (err) { return; }
+  if (url.origin !== location.origin) return;
+
+  // API — תמיד מהרשת, בלי מטמון בכלל. נתונים חייבים להיות עדכניים.
+  if (url.pathname.startsWith('/api/')) return;
 
   // תמונות ואייקונים — מהמטמון קודם (מהיר, וחוסך נתונים)
-  if (IMG.test(new URL(req.url).pathname)) {
+  if (STATIC_IMG.test(url.pathname)) {
     e.respondWith(
       caches.match(req).then(hit => hit || fetch(req).then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(req, copy));
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(req, copy));
+        }
         return res;
       }))
     );
     return;
   }
 
-  // דפים, קוד ו-API — מהרשת קודם, ורק אם אין רשת נופלים למטמון
+  // דפים וקוד — מהרשת קודם, ורק אם אין רשת נופלים למטמון
   e.respondWith(
     fetch(req).then(res => {
-      if (res.ok && !req.url.includes('/api/')) {
+      if (res.ok) {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(req, copy));
       }
