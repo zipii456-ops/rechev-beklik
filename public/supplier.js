@@ -89,11 +89,17 @@
     pollTimer = setInterval(() => load(true), 25000);
   }
 
+  let hadCars = false;   // כדי לזהות איפוס נתונים בצד השרת
+
   async function load(silent) {
     try {
       if (!meta.carTypes.length) meta = await api('/api/meta');
       const [carsData, data] = await Promise.all([api('/api/supplier/cars'), api('/api/supplier/requests')]);
       cars = carsData.cars;
+      if (hadCars && cars.length === 0) {
+        showMsg('שימו לב: צי הרכבים ריק — ייתכן שהשרת אותחל והנתונים נמחקו. יש להוסיף את הרכבים מחדש.', 'error');
+      }
+      hadCars = cars.length > 0;
       $('sup-name').textContent = `${data.supplier.name} · אזור ${data.supplier.region}`;
       render(data.supplier, data.requests);
     } catch (err) {
@@ -447,9 +453,9 @@
             note: draftNote[id] || '',
           }});
           delete drafts[id];
-          showMsg(res.count > 1 ? `${res.count} רכבים נשלחו ללקוח` : 'ההצעה נשלחה ללקוח', 'success');
           activeTab = 'sent';
-          load(true);
+          await load();
+          showMsg(res.count > 1 ? `${res.count} רכבים נשלחו ללקוח` : 'ההצעה נשלחה ללקוח', 'success');
         } catch (err) { showMsg(err.message, 'error'); btn.disabled = false; }
       };
     });
@@ -459,7 +465,7 @@
         if (!confirm('לסמן שאין לך זמינות לבקשה זו?')) return;
         try {
           await api(`/api/supplier/requests/${btn.dataset.unavail}/offers`, { body: { available: false } });
-          load(true);
+          await load();
         } catch (err) { showMsg(err.message, 'error'); }
       };
     });
@@ -471,8 +477,8 @@
         if (!confirm(`לעדכן את העסקה כ"${btn.dataset.status}"?`)) return;
         try {
           await api(`/api/supplier/offers/${btn.dataset.final}/status`, { body: { status: btn.dataset.status } });
+          await load();
           showMsg('הסטטוס עודכן — תודה!', 'success');
-          load(true);
         } catch (err) { showMsg(err.message, 'error'); }
       };
     });
@@ -511,8 +517,8 @@
             gearbox: form.elements.gearbox.value,
           }});
           editingCarId = null;
+          await load();
           showMsg('פרטי הרכב עודכנו', 'success');
-          load(true);
         } catch (err) { showMsg(err.message, 'error'); }
       });
     });
@@ -539,13 +545,19 @@
         const btn = $('add-car-btn');
         btn.disabled = true;
         try {
-          await api('/api/supplier/cars', { body: {
+          const res = await api('/api/supplier/cars', { body: {
             model: addForm.elements.model.value,
             carType: addForm.elements.carType.value,
             gearbox: addForm.elements.gearbox.value,
           }});
-          showMsg('הרכב נוסף לצי שלך', 'success');
-          load(true);
+          await load();
+          // מאשרים שהרכב אכן נשמר, ולא מסתפקים בתשובת השרת
+          if (cars.some(c => c.id === res.id)) {
+            showMsg('הרכב נוסף לצי שלך', 'success');
+          } else {
+            showMsg('הרכב נשלח אך לא מופיע בצי — ייתכן שהשרת אותחל. נסו להוסיף שוב.', 'error');
+            btn.disabled = false;
+          }
         } catch (err) { showMsg(err.message, 'error'); btn.disabled = false; }
       });
     }
@@ -554,7 +566,7 @@
         if (!confirm('להסיר את הרכב מהצי? הצעות קיימות לא יושפעו.')) return;
         try {
           await api(`/api/supplier/cars/${btn.dataset.removeCar}`, { method: 'DELETE' });
-          load(true);
+          await load();
         } catch (err) { showMsg(err.message, 'error'); }
       };
     });
