@@ -645,11 +645,7 @@
       if (!res.ok) return;
       const data = await res.json();
       const sups = data.suppliers || [];
-      const pass = data.defaults && data.defaults.supplierPassword;
-      if (!sups.length || !pass) return;
-
-      $('l-email').value = sups[0].email || '';
-      $('l-password').value = pass;
+      if (!sups.length) return;
 
       const byRegion = {};
       sups.forEach(sup => (byRegion[sup.region] = byRegion[sup.region] || []).push(sup));
@@ -657,7 +653,7 @@
       $('demo-pick').innerHTML = `
         <div class="card">
           <h3>כניסה מהירה לבדיקות</h3>
-          <p class="hint">בחרו ספק וייכנסו מיד, בלי סיסמה.
+          <p class="hint">בחרו ספק וייכנסו מיד.
             שימו לב: כל ספק רואה רק בקשות מהאזור שלו — לבקשה מירושלים צריך ספק מירושלים.</p>
           ${Object.keys(byRegion).map(region => `
             <div class="builder-title">${esc(region)}</div>

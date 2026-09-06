@@ -24,6 +24,10 @@ app.get('/track/:token', page('index.html'));
 app.get('/supplier', page('supplier.html'));
 app.get('/demo', page('demo.html'));
 app.get(['/install', '/start'], page('install.html'));
+app.get('/privacy', page('privacy.html'));
+// אימות הבעלות על האתר עבור אפליקציית Google Play (Digital Asset Links)
+app.get('/.well-known/assetlinks.json', (req, res) =>
+  res.sendFile(path.join(__dirname, 'public', 'assetlinks.json')));
 app.get('/admin', page('admin.html'));
 app.get('/healthz', (req, res) => res.json({ ok: true }));
 

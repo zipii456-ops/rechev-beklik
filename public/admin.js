@@ -273,11 +273,32 @@
     try {
       const res = await fetch('/api/demo/accounts');
       if (!res.ok) return;
-      const d = (await res.json()).defaults;
-      if (!d || !d.admin) return;
-      $('l-email').value = d.admin.email;
-      $('l-password').value = d.admin.password;
-      showMsg('פרטי הכניסה מולאו אוטומטית למצב בדיקות — אפשר פשוט ללחוץ "כניסה"', 'info');
+      const data = await res.json();
+      if (!data.admin) return;
+      $('l-email').value = data.admin.email || '';
+      const box = document.createElement('div');
+      box.className = 'card';
+      box.style.maxWidth = '420px';
+      box.style.margin = '0 auto';
+      box.innerHTML = `<h3>כניסה מהירה לבדיקות</h3>
+        <p class="hint">כניסה כמנהל בלחיצה אחת, בלי סיסמה.</p>
+        <button class="btn small" id="demo-admin-btn" type="button">כניסה כ${data.admin.name}</button>`;
+      $('view-login').appendChild(box);
+      $('demo-admin-btn').onclick = async () => {
+        try {
+          const r = await fetch('/api/demo/login', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: 'admin' }),
+          });
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'שגיאה');
+          setToken(d.token);
+          $('admin-name').textContent = d.name;
+          box.remove();
+          showMsg('');
+          enterDash();
+        } catch (err) { showMsg(err.message, 'error'); }
+      };
     } catch (e) {}
   }
 

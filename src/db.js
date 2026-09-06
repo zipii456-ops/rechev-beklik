@@ -266,11 +266,19 @@ function seedIfEmpty() {
   if (!fs.existsSync(seedPath)) return;
   const seed = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
 
+  // סיסמאות נקבעות במשתני סביבה בלבד — לעולם לא בקוד
+  const adminEmail = (process.env.ADMIN_EMAIL || seed.admin.email).trim().toLowerCase();
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin1234';
+  const supplierPassword = process.env.SUPPLIER_PASSWORD || 'demo1234';
+  if (!process.env.ADMIN_PASSWORD) {
+    console.warn('אזהרה: ADMIN_PASSWORD לא הוגדר — נעשה שימוש בסיסמת פיתוח. אין להשתמש בכך בייצור.');
+  }
+
   // חשבון אדמין חייב להתקיים כדי שאפשר יהיה לנהל את המערכת
   const { n: adminCount } = db.prepare('SELECT COUNT(*) AS n FROM admins').get();
   if (adminCount === 0) {
     db.prepare('INSERT INTO admins (name, email, password_hash) VALUES (?,?,?)').run(
-      seed.admin.name, seed.admin.email, hashPassword(seed.admin.password)
+      seed.admin.name, adminEmail, hashPassword(adminPassword)
     );
     console.log('חשבון אדמין נוצר');
   }
@@ -284,7 +292,7 @@ function seedIfEmpty() {
   );
   const supIdsByRegion = {};
   for (const s of seed.suppliers) {
-    const info = insSup.run(s.name, s.region, s.contactName, s.email, hashPassword(s.password), s.active ? 1 : 0);
+    const info = insSup.run(s.name, s.region, s.contactName, s.email, hashPassword(supplierPassword), s.active ? 1 : 0);
     const id = Number(info.lastInsertRowid);
     if (s.active) (supIdsByRegion[s.region] = supIdsByRegion[s.region] || []).push(id);
   }

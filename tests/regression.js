@@ -2,6 +2,11 @@
 // ברירת מחדל: http://localhost:3000
 const BASE = process.argv[2] || 'http://localhost:3000';
 let failures = 0;
+// פרטי הכניסה נקראים מהסביבה — אין סיסמאות קבועות בקוד
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@rechev-beklik.co.il';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin1234';
+const SUPPLIER_PASSWORD = process.env.SUPPLIER_PASSWORD || 'demo1234';
+
 
 const check = (name, cond, extra) => {
   console.log((cond ? 'PASS  ' : 'FAIL  ') + name + (cond ? '' : ' -- ' + JSON.stringify(extra)));
@@ -16,7 +21,7 @@ const api = async (path, { method, body, token } = {}) => {
   });
   return { status: res.status, data: await res.json().catch(() => ({})) };
 };
-const login = (email, password = 'demo1234') =>
+const login = (email, password = SUPPLIER_PASSWORD) =>
   api('/api/supplier/login', { body: { email, password } }).then(r => r.data.token);
 
 (async () => {
@@ -95,7 +100,7 @@ const login = (email, password = 'demo1234') =>
   check('דמי ניהול חושבו', final.data.commission === Math.round(760 * final.data.percent) / 100, final.data);
 
   // ===== ניהול =====
-  const admin = (await api('/api/admin/login', { body: { email: 'admin@demo.co.il', password: 'admin1234' } })).data.token;
+  const admin = (await api('/api/admin/login', { body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })).data.token;
   check('כניסת מנהל', !!admin);
   const ov = await api('/api/admin/overview', { token: admin });
   const adminReq = ov.data.requests.find(r => r.publicId === req.data.publicId);
@@ -106,8 +111,8 @@ const login = (email, password = 'demo1234') =>
   const pw = await api(`/api/admin/suppliers/${sup.id}/password`, { token: admin, body: { password: 'temp123456' } });
   check('קביעת סיסמה חדשה לספק', pw.status === 200);
   check('הסיסמה החדשה עובדת', (await api('/api/supplier/login', { body: { email: sup.email, password: 'temp123456' } })).status === 200);
-  await api(`/api/admin/suppliers/${sup.id}/password`, { token: admin, body: { password: 'demo1234' } });
-  check('הוחזר למצב הדמו', (await api('/api/supplier/login', { body: { email: sup.email, password: 'demo1234' } })).status === 200);
+  await api(`/api/admin/suppliers/${sup.id}/password`, { token: admin, body: { password: SUPPLIER_PASSWORD } });
+  check('הוחזר למצב הדמו', (await api('/api/supplier/login', { body: { email: sup.email, password: SUPPLIER_PASSWORD } })).status === 200);
 
   // ===== ניקוי =====
   await api('/api/admin/clear-requests', { token: admin, body: {} });

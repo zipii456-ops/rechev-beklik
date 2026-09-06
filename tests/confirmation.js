@@ -1,6 +1,11 @@
 // בדיקת אישור הלקוח וזיהוי אי-התאמות. הרצה: node tests/confirmation.js [כתובת]
 const BASE = process.argv[2] || 'http://localhost:3000';
 let failures = 0;
+// פרטי הכניסה נקראים מהסביבה — אין סיסמאות קבועות בקוד
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@rechev-beklik.co.il';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin1234';
+const SUPPLIER_PASSWORD = process.env.SUPPLIER_PASSWORD || 'demo1234';
+
 const check = (name, cond, extra) => {
   console.log((cond ? 'PASS  ' : 'FAIL  ') + name + (cond ? '' : ' -- ' + JSON.stringify(extra)));
   if (!cond) failures++;
@@ -31,8 +36,8 @@ async function dealUpTo({ token, carId, price = 200 }) {
 }
 
 (async () => {
-  const admin = (await api('/api/admin/login', { body: { email: 'admin@demo.co.il', password: 'admin1234' } })).data.token;
-  const t = (await api('/api/supplier/login', { body: { email: 'moshe@demo.co.il', password: 'demo1234' } })).data.token;
+  const admin = (await api('/api/admin/login', { body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })).data.token;
+  const t = (await api('/api/supplier/login', { body: { email: 'moshe@demo.co.il', password: SUPPLIER_PASSWORD } })).data.token;
   await api('/api/admin/settings/commission', { token: admin, body: { percent: 10 } });
   const car = await api('/api/supplier/cars', { token: t, body: { model: 'טויוטה קורולה', carType: 'משפחתי', gearbox: 'אוטומטי' } });
 

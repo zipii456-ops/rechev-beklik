@@ -63,6 +63,10 @@ a { color: var(--cta); }
   width: 34px; height: 34px; border-radius: 6px; background: var(--blue-bg);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
+.searchbox .sb-icon svg {
+  width: 20px; height: 20px; fill: none;
+  stroke: var(--blue); stroke-width: 1.8;
+}
 .searchbox .sb-text { flex: 1; min-width: 0; }
 .searchbox .sb-title { font-weight: 700; font-size: .95rem; }
 .searchbox .sb-sub {
