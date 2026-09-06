@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>רכב בקליק — התקנת האפליקציה</title>
+  <meta name="theme-color" content="#003b95">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="רכב בקליק">
+  <link rel="stylesheet" href="/app.css">
+  <style>
+    .steps { counter-reset: step; }
+    .step {
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 12px 0; border-bottom: 1px solid var(--line);
+    }
+    .step:last-child { border-bottom: none; }
+    .step::before {
+      counter-increment: step; content: counter(step);
+      background: var(--blue); color: #fff; font-weight: 800;
+      width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: .85rem;
+    }
+    .step-text strong { display: block; }
+    .step-text small { color: var(--muted); }
+    .qr-card { display: flex; gap: 14px; align-items: center; }
+    .qr-card img { width: 116px; height: 116px; flex-shrink: 0; border: 1px solid var(--line); border-radius: 6px; }
+    .qr-card .qr-text { flex: 1; min-width: 0; }
+    .qr-card .qr-text a { word-break: break-all; font-size: .82rem; }
+    .platform-pick { display: flex; gap: 8px; margin-bottom: 14px; }
+    .platform-pick button { flex: 1; }
+    .app-icon-demo {
+      width: 62px; height: 62px; border-radius: 14px; display: block; margin: 0 auto 8px;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="logo"><span class="blue">רכב</span> <span class="gold">בקליק</span></div>
+      <div class="sub">התקנת האפליקציה בטלפון</div>
+    </div>
+  </header>
+
+  <main class="app">
+    <div class="card" style="text-align:center">
+      <img class="app-icon-demo" src="/icon-192.png" alt="">
+      <h2>רכב בקליק</h2>
+      <p class="hint" style="margin:0">
+        מתקינים את האפליקציה ישירות מהדפדפן — בלי חנות אפליקציות, בלי הרשמה.
+        אחרי ההתקנה יש אייקון במסך הבית והיא נפתחת במסך מלא, בדיוק כמו אפליקציה רגילה.
+      </p>
+    </div>
+
+    <div class="platform-pick">
+      <button class="btn outline" data-plat="ios" type="button">אייפון</button>
+      <button class="btn outline" data-plat="android" type="button">אנדרואיד</button>
+      <button class="btn outline" data-plat="desktop" type="button">מחשב</button>
+    </div>
+
+    <section id="p-ios" class="card hidden">
+      <h3>התקנה באייפון / אייפד</h3>
+      <p class="hint">חשוב: הפעולה עובדת רק בדפדפן <strong>Safari</strong>. אם פתחתם בכרום — העתיקו את הקישור ופתחו ב-Safari.</p>
+      <div class="steps">
+        <div class="step"><div class="step-text"><strong>פותחים את הקישור ב-Safari</strong>
+          <small>הקישור מופיע למטה בעמוד זה</small></div></div>
+        <div class="step"><div class="step-text"><strong>לוחצים על כפתור השיתוף</strong>
+          <small>הריבוע עם החץ כלפי מעלה, בתחתית המסך</small></div></div>
+        <div class="step"><div class="step-text"><strong>גוללים ובוחרים "הוספה למסך הבית"</strong>
+          <small>Add to Home Screen</small></div></div>
+        <div class="step"><div class="step-text"><strong>לוחצים "הוסף"</strong>
+          <small>האייקון יופיע במסך הבית ויפתח את האפליקציה במסך מלא</small></div></div>
+      </div>
+    </section>
+
+    <section id="p-android" class="card hidden">
+      <h3>התקנה באנדרואיד</h3>
+      <p class="hint">מומלץ בדפדפן <strong>Chrome</strong>.</p>
+      <div class="steps">
+        <div class="step"><div class="step-text"><strong>פותחים את הקישור ב-Chrome</strong></div></div>
+        <div class="step"><div class="step-text"><strong>ממתינים להצעה "התקנת אפליקציה"</strong>
+          <small>אם לא הופיעה — תפריט שלוש הנקודות בפינה ← "התקנת אפליקציה" או "הוספה למסך הבית"</small></div></div>
+        <div class="step"><div class="step-text"><strong>מאשרים התקנה</strong>
+          <small>האייקון יופיע במסך הבית וברשימת האפליקציות</small></div></div>
+      </div>
+      <div class="btn-row"><button class="btn hidden" id="install-btn" type="button">התקנת האפליקציה עכשיו</button></div>
+    </section>
+
+    <section id="p-desktop" class="card hidden">
+      <h3>שימוש במחשב</h3>
+      <p class="hint">אפשר לעבוד ישירות בדפדפן, או לסרוק את קוד ה-QR שלמטה כדי לעבור לטלפון.</p>
+      <div class="steps">
+        <div class="step"><div class="step-text"><strong>פותחים את הקישור המתאים</strong>
+          <small>לקוח, ספק או ניהול — הקישורים למטה</small></div></div>
+        <div class="step"><div class="step-text"><strong>בכרום או אדג׳ אפשר גם להתקין</strong>
+          <small>אייקון ההתקנה מופיע בקצה שורת הכתובת</small></div></div>
+      </div>
+    </section>
+
+    <div class="section-title">הקישורים</div>
+
+    <div class="card qr-card">
+      <img src="/qr-customer.png" alt="">
+      <div class="qr-text">
+        <strong>👤 לקוח</strong>
+        <div class="order-sub">הקישור שמפרסמים ללקוחות. אין צורך בהרשמה.</div>
+        <a href="https://rechev-beklik.onrender.com/">rechev-beklik.onrender.com</a>
+      </div>
+    </div>
+
+    <div class="card qr-card">
+      <img src="/qr-supplier.png" alt="">
+      <div class="qr-text">
+        <strong>🏢 ספק / סניף השכרה</strong>
+        <div class="order-sub">רק לזכיינים. כניסה עם אימייל וסיסמה שמקבלים מההנהלה.</div>
+        <a href="https://rechev-beklik.onrender.com/supplier">rechev-beklik.onrender.com/supplier</a>
+      </div>
+    </div>
+
+    <div class="card qr-card">
+      <img src="/qr-admin.png" alt="">
+      <div class="qr-text">
+        <strong>🛠️ ניהול</strong>
+        <div class="order-sub">להנהלה בלבד — כל הבקשות, ההצעות והספקים.</div>
+        <a href="https://rechev-beklik.onrender.com/admin">rechev-beklik.onrender.com/admin</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>שיתוף העמוד הזה</h3>
+      <p class="hint">שלחו את הקישור למי שצריך להתקין, או בקשו ממנו לסרוק את הקוד.</p>
+      <div class="qr-card">
+        <img src="/qr-install.png" alt="">
+        <div class="qr-text">
+          <div class="copy-box">
+            <input id="install-link" readonly value="https://rechev-beklik.onrender.com/install">
+            <button class="btn small secondary" id="copy-btn" type="button">העתקה</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="credit">רכב בקליק · <a href="/credits.html">קרדיט תמונות</a></footer>
+  </main>
+
+  <script>
+    (function () {
+      const $ = (id) => document.getElementById(id);
+      const ua = navigator.userAgent;
+      const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isAndroid = /Android/.test(ua);
+
+      function show(plat) {
+        for (const p of ['ios', 'android', 'desktop']) {
+          $('p-' + p).classList.toggle('hidden', p !== plat);
+        }
+        document.querySelectorAll('[data-plat]').forEach(b => {
+          const on = b.dataset.plat === plat;
+          b.classList.toggle('outline', !on);
+          b.classList.toggle('secondary', on);
+        });
+      }
+      document.querySelectorAll('[data-plat]').forEach(b => { b.onclick = () => show(b.dataset.plat); });
+      show(isIOS ? 'ios' : (isAndroid ? 'android' : 'desktop'));
+
+      // כפתור התקנה אמיתי באנדרואיד, כשהדפדפן מציע זאת
+      let deferred = null;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferred = e;
+        $('install-btn').classList.remove('hidden');
+      });
+      $('install-btn').onclick = async () => {
+        if (!deferred) return;
+        deferred.prompt();
+        await deferred.userChoice;
+        deferred = null;
+        $('install-btn').classList.add('hidden');
+      };
+
+      $('copy-btn').onclick = async () => {
+        await navigator.clipboard.writeText($('install-link').value).catch(() => {});
+        $('copy-btn').textContent = 'הועתק ✓';
+        setTimeout(() => { $('copy-btn').textContent = 'העתקה'; }, 1800);
+      };
+    })();
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+    }
+  </script>
+</body>
+</html>
