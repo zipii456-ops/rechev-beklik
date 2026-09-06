@@ -265,7 +265,20 @@
     });
   }
 
+  // מילוי אוטומטי של פרטי כניסה — רק כשמצב ההדגמה פעיל (נעלם לפני עלייה לאוויר)
+  async function prefillDemo() {
+    try {
+      const res = await fetch('/api/demo/accounts');
+      if (!res.ok) return;
+      const d = (await res.json()).defaults;
+      if (!d || !d.admin) return;
+      $('l-email').value = d.admin.email;
+      $('l-password').value = d.admin.password;
+      showMsg('פרטי הכניסה מולאו אוטומטית למצב בדיקות — אפשר פשוט ללחוץ "כניסה"', 'info');
+    } catch (e) {}
+  }
+
   // ---- ניתוב ראשוני ----
   if (getToken()) enterDash();
-  else showView('login');
+  else { showView('login'); prefillDemo(); }
 })();

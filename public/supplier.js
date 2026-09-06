@@ -560,7 +560,22 @@
     });
   }
 
+  // מילוי אוטומטי של פרטי כניסה — רק כשמצב ההדגמה פעיל (נעלם לפני עלייה לאוויר)
+  async function prefillDemo() {
+    try {
+      const res = await fetch('/api/demo/accounts');
+      if (!res.ok) return;
+      const data = await res.json();
+      const first = (data.suppliers || [])[0];
+      const pass = data.defaults && data.defaults.supplierPassword;
+      if (!first || !pass) return;
+      $('l-email').value = first.email || '';
+      $('l-password').value = pass;
+      showMsg('פרטי הכניסה מולאו אוטומטית למצב בדיקות — אפשר פשוט ללחוץ "כניסה"', 'info');
+    } catch (e) {}
+  }
+
   // ---- ניתוב ראשוני ----
   if (getToken()) enterBoard();
-  else showView('login');
+  else { showView('login'); prefillDemo(); }
 })();

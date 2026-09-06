@@ -1,8 +1,23 @@
 // כניסה מהירה לבדיקות — בחירת משתמש בלחיצה, בלי סיסמה.
 // מופעל רק כש-DEMO_LOGIN אינו '0'. לפני השקה אמיתית יש לכבות!
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
 const { db } = require('../db');
 const { createSession } = require('../auth');
+
+// פרטי הכניסה לדמו נלקחים מקובץ הזריעה — לשימוש בבדיקות בלבד
+function demoDefaults() {
+  try {
+    const seed = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'seed-data.json'), 'utf8'));
+    return {
+      admin: { email: seed.admin.email, password: seed.admin.password },
+      supplierPassword: (seed.suppliers[0] || {}).password || '',
+    };
+  } catch (e) {
+    return null;
+  }
+}
 
 const router = express.Router();
 const enabled = () => process.env.DEMO_LOGIN !== '0';
@@ -14,10 +29,14 @@ router.use((req, res, next) => {
 
 router.get('/accounts', (req, res) => {
   const suppliers = db.prepare(
-    'SELECT id, name, region FROM suppliers WHERE removed=0 AND active=1 ORDER BY region, name'
+    'SELECT id, name, region, email FROM suppliers WHERE removed=0 AND active=1 ORDER BY region, name'
   ).all();
   const admin = db.prepare('SELECT id, name FROM admins ORDER BY id LIMIT 1').get();
-  res.json({ suppliers, admin: admin ? { id: admin.id, name: admin.name } : null });
+  res.json({
+    suppliers,
+    admin: admin ? { id: admin.id, name: admin.name } : null,
+    defaults: demoDefaults(),
+  });
 });
 
 router.post('/login', (req, res) => {

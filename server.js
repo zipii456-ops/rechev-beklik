@@ -23,7 +23,7 @@ const page = (file) => (req, res) => res.sendFile(path.join(__dirname, 'public',
 app.get('/track/:token', page('index.html'));
 app.get('/supplier', page('supplier.html'));
 app.get('/demo', page('demo.html'));
-app.get('/install', page('install.html'));
+app.get(['/install', '/start'], page('install.html'));
 app.get('/admin', page('admin.html'));
 app.get('/healthz', (req, res) => res.json({ ok: true }));
 
